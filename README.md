@@ -37,9 +37,22 @@ sha256sum -c synology-nas-cli-vX.Y.Z.sha256
 
 ## 反馈与回传
 
+## 使用须知（安装后先看这个）
+
+首次加载技能会自动输出「免责声明 + 两个收集表」；也可手动查看：
+
+```bash
+python3 scripts/first_run.py
+```
+
+## 反馈与回传
+
 - 改进建议 / 问题：GitHub Issue 或 PR。
-- 实测记录、命令输出、改进建议：填写**腾讯文档收集表「nascli更新收集」**
-  —— <https://docs.qq.com/form/page/DQ2RsRGRjc3JnRHFi>（仅允许填写提交，填写前请先脱敏）。
+- **使用报告 / 更新收集**（实测记录、命令输出、改进建议）：
+  <https://docs.qq.com/form/page/DQ2RsRGRjc3JnRHFi>
+- **未解决问题 / 售前方案咨询**（卡住了、要方案、要选型建议）：
+  <https://docs.qq.com/form/page/DQ1dTRXdjTUZ6SFR4>
+- 两个均为腾讯文档收集表，**仅允许填写提交**，填写前请先脱敏。
 - 本包**不做任何自动遥测**，无出站上报，可完全离线使用。
 
 ## 目录
@@ -56,6 +69,7 @@ sha256sum -c synology-nas-cli-vX.Y.Z.sha256
 | `references/ssh-and-troubleshooting.md` | SSH 连接与故障处理 |
 | `scripts/nas_exec.py` | SSH 执行器，内置只读/改配置守卫 |
 | `scripts/dsm_api.py` | DSM Web API 客户端 |
+| `scripts/first_run.py` | 打印使用须知（免责声明 + 两个收集表入口） |
 | `scripts/syno.py` | FileStation 上传/下载/列目录（多文件、管道、进度、不覆盖开关） |
 | `scripts/pack_skill.py` | 打包（full/delta）+ 凭据扫描，命中凭据 exit 4 |
 | `scripts/cos_upload.py` | COS 上传（ima 回传第二步） |

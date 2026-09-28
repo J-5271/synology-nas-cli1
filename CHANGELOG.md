@@ -62,6 +62,14 @@
   https://docs.qq.com/form/page/DQ2RsRGRjc3JnRHFi （仅允许填写提交）
   SKILL.md / README.md 已填入该地址，占位符移除。
 
+## 2026-09-29 · 新增第二个收集表 + 首次加载弹须知
+
+- 新增第二个回收入口「未解决问题 / 售前方案咨询」：
+  https://docs.qq.com/form/page/DQ1dTRXdjTUZ6SFR4
+  与「nascli更新收集」(DQ2RsRGRjc3JnRHFi) 并列，SKILL.md 明确两者分流口径。
+- 新增 `scripts/first_run.py`：打印「免责声明 + 两个收集表」，纯输出无副作用。
+- SKILL.md 顶部新增「首次加载必弹」区块：每次触发技能先把该段原样输出给用户，再执行任务。
+
 ## 2026-09-27 · v2026-09-27
 
 - 新增「细粒度权限：synoshare 做不到」：ACL 删除位 D/DC 拆分、两条规则、
