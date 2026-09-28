@@ -146,3 +146,14 @@ ls /usr/syno/sbin/ | grep -i syno    # 本机实际有哪些 CLI 工具
   DS918+ / DSM 7.3-81180（内网 <NAS_IP>:22，OpenSSH_8.2）。
 - 相关补充：DSM 共享文件夹的细粒度权限（能删文件不能删文件夹）不属于 SSH/CLI 范畴，
   见 SKILL.md「细粒度权限：synoshare 做不到」一节。
+
+- 2026-09-28 新增实测（DS423+ / DSM 7.2.1-69057）：
+  - 长耗时命令（如 docker pull）会撞 nas_exec.py 的通道读超时 → 报
+    paramiko PipeTimeout。解法：后台化 + 轮询日志。**注意**：`sudo -i sh -c
+    'nohup ... &'` 的后台进程会随会话结束被杀（日志空、进程消失）；改用
+    用户身份直接 `nohup <cmd> > /tmp/x.log 2>&1 &` 可存活。
+  - BusyBox `ps` 默认截断命令行，`ps | grep xxx` 匹配不到；要用 `ps w`。
+  - docker pull 需命令行在 docker 组（DSM 上管理员账号默认可用，无需 sudo）。
+  - 国内网络：registry-1.docker.io 直连不通（curl 000），`docker.m.daocloud.io`
+    可用（401 为正常 auth challenge），直接 `docker pull
+    docker.m.daocloud.io/<img>:<tag>` 后 `docker tag` 改名即可。
