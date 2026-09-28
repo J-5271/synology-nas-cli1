@@ -332,7 +332,24 @@ systemctl status <服务名>
 - 依赖与供应链：CI 里的第三方 Actions 固定到 commit SHA，不用可变标签；
   版本发布产物附 SHA256 校验和。
 
-### 更新检查（每周一次，2026-09-29 定）
+### 更新与同步节奏：本地优先 + 每晚统一推送（2026-09-29 定）
+
+> **铁律**：所有改动**先在本地 commit**，**不在当次对话里 push**。
+> 推送统一交给每晚的自动化任务（GitHub + 腾讯文档一起同步）。
+> 例外：只有用户明确说「现在推 / 立刻同步」时才手动 push。
+
+| 阶段 | 做什么 | 什么时候 |
+|---|---|---|
+| ① 改 | 编辑 SKILL.md / 脚本 / references | 随时 |
+| ② 存 | `git add -A && git commit -m "..."`（**到此为止，不要 push**） | 改完立即 |
+| ③ 推 | `git push origin main` + `git push --tags` | 每晚 22:00 自动 |
+| ④ 宣 | 同步腾讯文档《版本更新记录》+ 向用户输出主要更新内容 | 每晚 22:00 自动 |
+| ⑤ 查 | 跑 `check_update.py` 看远端有没有别人的改动 | 每周日 21:30 自动 |
+
+这么切的原因：白天来回改会留下一堆碎片 commit，公开仓库历史不好看；
+而且每次改完都推一次，腾讯文档也要跟着改一次，纯浪费。攒一天，晚上一次推干净。
+
+**当次对话结束时自查**：`git log --oneline origin/main..HEAD` 有输出 = 待推送，等晚上即可，不用手动推。
 
 | 项 | 值 |
 |---|---|
@@ -356,16 +373,29 @@ python scripts/check_update.py --set-version 1.1.0   # 手动改本地版本基�
 
 退出码：`0` 有更新 / `3` 无更新 / `4` 查询失败（会打印腾讯文档镜像地址兜底）。
 
+**每晚推送流程**（automation `39b991d0-dc49-489e-9a1f-6a1eaf4c4fba`，每天 22:00）
+
+1. `git status --short` 有未提交改动 → 先 `git add -A && git commit -m "docs: 每日同步 YYYY-MM-DD"`；
+2. `git log --oneline origin/main..HEAD`：
+   - 空 → 无待推内容，跳过 push（别空跑）；
+   - 非空 → `git push origin main`；本地有 tag 再 `git push --tags`；
+3. push 成功后更新腾讯文档《版本更新记录》：
+   「一、当前版本」表的发布日期 / 对应提交改成最新 HEAD，
+   「四、版本记录」表**追加一行**（版本、日期、类型、主要更新内容）；
+4. **向用户输出当天主要更新内容**：本次推送了哪几个 commit，每个用一句话中文说清改了什么；
+5. 跑 `check_update.py --mark-seen` 前推水位；
+6. push 失败（网络 / 凭据过期）→ 不要反复重试，直接告诉用户原因，改动留在本地等下次。
+
 **每周检查流程**（automation `b3bbeb4b-1351-4127-ac0f-1532f712feef`，每周日 21:30）
+—— 只查不改，**不做推送**（推送归每晚任务）：
 
 1. 跑 `check_update.py --json`；
-2. `has_update=false` → 只在 `.update_state.json` 记 `last_checked`，不动文档；
-3. `has_update=true` → 三件事：
-   - 更新腾讯文档《版本更新记录》的「当前版本」与「版本记录」表（追加一行）；
-   - 在 `CHANGELOG.md` 追加一条带日期的更新说明；
-   - **向用户输出本次主要更新内容**（版本号、发布说明、新增 commit 列表）；
-4. 处理完跑 `--mark-seen` 前推水位；
-   若本次是发布型更新（有 tag/Release），再 `--set-version <新版本号>` 同步本地基线。
+2. `has_update=false` → 只记 `last_checked`；
+3. `has_update=true`（说明远端有本地没有的改动，例如别人提的 PR 被合并）→
+   - `git fetch origin && git log --oneline HEAD..origin/main` 看差异；
+   - 在 `CHANGELOG.md` 追加一条说明，并**向用户输出主要更新内容**；
+   - 需要合并时先问用户，不要擅自 `git pull --rebase`；
+4. 处理完跑 `--mark-seen`；发布型更新再 `--set-version <新版本号>`。
 
 ### 反馈与回传入口（两个收集表）
 

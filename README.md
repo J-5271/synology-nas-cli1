@@ -90,8 +90,13 @@ python3 scripts/first_run.py
 
 ## 版本与同步节奏
 
-- **每周**：`pack_skill.py --mode delta` 打增量，回传 ima「公用nas操作技能」；git commit 记历史。
+> **改动只在本地做，推送统一在每晚 22:00 自动执行**（GitHub + 腾讯文档一起同步）。
+> 日常改完只需 `git commit`，不要顺手 `git push`。
+
+- **每天 22:00**：把当天本地 commit 推到 GitHub，同步腾讯文档《版本更新记录》，并汇报当天主要更新内容。
+- **每周日 21:30**：只检查远端有没有本地没有的改动（例如他人 PR 被合并），**不推送**。
 - **每月**：`pack_skill.py --mode full` 打整包，REPLACE 覆盖 ima 主条目；git 打 tag `vYYYY.MM`。
+- **ima 周增量**：`pack_skill.py --mode delta` 打增量，回传 ima「公用nas操作技能」。
 
 ## 红线
 
