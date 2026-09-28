@@ -18,8 +18,8 @@ auth non-interactively. Falls back to the `ssh` binary if paramiko is absent
     pip install paramiko
 
 Config (environment):
-    NAS_HOST  (required)  NAS IP/hostname          e.g. 10.0.13.15
-    NAS_USER  (required)  SSH account              e.g. myadmin / root / test6
+    NAS_HOST  (required)  NAS IP/hostname          e.g. <NAS_IP>
+    NAS_USER  (required)  SSH account              e.g. myadmin / root
     NAS_PORT  default 22                           port from DSM > Terminal
     NAS_KEY   optional, path to private key        e.g. ~/.ssh/nas_rsa
     NAS_PASS  optional, password for SSH login and/or sudo

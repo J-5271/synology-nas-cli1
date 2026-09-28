@@ -1,6 +1,8 @@
 # synology-nas-cli
 
-Synology / 群晖 NAS 管理技能包。唯一真实来源，私有仓库。
+Synology / 群晖 NAS 管理技能包。唯一真实来源，**公开仓库**。
+
+⚠️ 公开仓库意味着：真实 IP、主机名、序列号、账号、客户名**一律不得入库**，一律占位符。
 
 ## 目录
 
@@ -8,6 +10,8 @@ Synology / 群晖 NAS 管理技能包。唯一真实来源，私有仓库。
 |---|---|
 | `SKILL.md` | 主入口：实测设备档案、脱敏规范、同步策略、ima 回传流程 |
 | `CHANGELOG.md` | 版本记录：日期 + 新增能力 |
+| `DEPENDENCIES.md` | 依赖清单：< 1 MB 入库，≥ 1 MB 只记地址 |
+| `CONTRIBUTING.md` | 协作规范：分支 + PR、提交前校验、内容红线 |
 | `references/cli-commands.md` | DSM CLI 命令（synouser / synoshare / synogroup …） |
 | `references/dsm-web-api.md` | DSM Web API 登录与调用 |
 | `references/error-codes.md` | 错误码与排查套路 |

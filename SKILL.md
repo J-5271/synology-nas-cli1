@@ -42,7 +42,7 @@ synoservice --enable/--disable/--restart 改服务状态、synouser/synogroup/sy
 - 登录（只有 administrators 群组的用户能登 SSH，DSM 5.2 及更早是 root）：
 ```
 ssh <管理员账号>@<NAS_IP> -p <SSH端口>
-# 例：ssh myadmin@10.17.2.6 -p 22
+# 例：ssh myadmin@<NAS_IP> -p 22
 ```
 - 提权到 root —— 输入该管理员账号的密码，不是别的密码：
 ```
@@ -63,7 +63,7 @@ DSM 6.0/SRM 1.3 及以上必须走 sudo -i，不能直接 ssh root。
 - 本机建议配 ~/.ssh/config：
 ```
 Host nas
-HostName 10.17.2.6
+HostName <NAS_IP>
 User myadmin
 Port 2222
 IdentityFile ~/.ssh/nas_rsa
@@ -177,9 +177,9 @@ synoshare synonet synowin 都还在）。
 /usr/syno/sbin/synoshare --setuser private RW + alice,@stuff
 
 # 静态 IP + 网关 + DNS（会断网，务必先确认）
-/usr/syno/sbin/synonet --manual eth0 192.168.14.64 255.255.0.0
-/usr/syno/sbin/synonet --set_gateway 192.168.15.254
-/usr/syno/sbin/synonet --set_dns 192.168.252.254
+/usr/syno/sbin/synonet --manual eth0 192.0.2.10 255.255.255.0
+/usr/syno/sbin/synonet --set_gateway 192.0.2.1
+/usr/syno/sbin/synonet --set_dns 203.0.113.53
 
 # 服务管理
 # DSM 7.3 实测：synoservice 已移除，改用 systemd
@@ -235,7 +235,7 @@ systemctl status <服务名>
 - 禁写：真实账号名、密码、sid、SSH 私钥、云的 secret_id / secret_key / token。
 - 一律用占位符：`<账号>` `<密码>` `<NAS_IP>` `<SSH端口>` `$DSM_PASSWORD` `$NAS_PASS`。
 - 设备档案只记型号 / DSM 版本 / 平台 / 网络可达性这类**无凭据**的事实；
-  IP 用网段写法（如 `10.0.13.0/24`）。
+  IP 用网段写法（如 `<内网网段>/24`）。
 - 凭据只走环境变量或交互输入，**不落盘、不写脚本、不写命令行历史、不进 git**。
 - `pack_skill.py` 默认做凭据扫描，命中疑似真实值即中止打包（exit 4）；
   确认真安全才加 `--allow-secrets`（不推荐）。
@@ -244,7 +244,7 @@ systemctl status <服务名>
 
 | 项 | 值 |
 |---|---|
-| 仓库 | `https://github.com/J-5271/synology-nas-cli.git`（**私有**） |
+| 仓库 | `https://github.com/J-5271/synology-nas-cli.git`（**公开**） |
 | 本地路径 | `~/.workbuddy/skills/synology-nas-cli/` |
 | 默认分支 | `main` |
 | 认证 | Git Credential Manager OAuth（`git credential-manager github login`），token 存 Windows 凭据管理器，不落 `.git/config` 明文 |
@@ -329,20 +329,25 @@ Download Station 0x08；官方示例用到 0x10（Surveillance Station）。凑�
 
 ### 实测设备档案（DS918+ / DSM 7.3-81180）
 
-在 http://synobj.synozh.cn:3000 / SSH 10.0.13.15:22 上验证的硬结论，碰 DSM 先看这段。
+在 DSM 7.3-81180 / DS918+ 上实测得出的硬结论，碰 DSM 先看这段。
+
+> ⚠️ **本仓库是公开仓库**。档案只保留「型号 / 版本级」结论。
+> 真实 IP、主机名、序列号、账号名、磁盘与网络拓扑**一律不入库**，用占位符代替。
 
 | 项 | 值 |
 |---|---|
-| 型号 / 序列号 | DS918+ / 18C0PDN571711 |
+| 型号 / 序列号 | DS918+ / `<序列号>` |
 | CPU | Intel Celeron J3455 @1.5GHz，4 核 |
 | 内存 | 4096 MB |
-| DSM | 7.3-81180（builddate 2025/10/03），内核 4.4.302+ #81180 SMP，主机名 DS918 |
+| DSM | 7.3-81180（builddate 2025/10/03），内核 4.4.302+ #81180 SMP |
 | 平台 | synology_apollolake_918+ |
-| SSH | 已启用（Telnet 关闭），SSH-2.0-OpenSSH_8.2，端口 22 |
-| 账号 | test6 uid=1035，groups = users + administrators，`sudo -i` → root ✓ |
-| 规模 | 55 个本地用户、41 个共享文件夹、1644 个注册 API |
-| 磁盘 | /volume1 = 885G（用 158G，18%）、/volume2 = 1.8T（用 64G，4%） |
-| 网络 | 公网只转发 3000；22/5000/5001 全 refused，SSH 只在内网 10.0.13.0/24 可达 |
+| SSH | 已启用（Telnet 关闭），SSH-2.0-OpenSSH_8.2，端口 22（可在 DSM 改） |
+| 账号 | `<管理员账号>`，必须属 `administrators` 组，`sudo -i` → root ✓ |
+| 规模 | 数十本地用户、数十共享文件夹、注册 API 逾千（现场 `synouser --get` 数） |
+| 磁盘 | 多 volume，型号无关；现场看 `df -h` |
+| 网络 | SSH 建议只放通内网 `<内网网段>`；公网端口按现场防火墙策略决定 |
+
+> 使用本技能前，把自己的设备信息填进上面的占位符即可；**填的时候别提交**。
 
 > 维护记录：2026-09-27 周度巡检 —— 本周未产生新的 SSH / DSM Web API 实测记录，
 > 无新增实测设备，上表不变。

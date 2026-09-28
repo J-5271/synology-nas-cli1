@@ -153,9 +153,9 @@ synonet {--set_hostname} hostname [--dont restart service]
 ### 示例
 
 ```bash
-/usr/syno/sbin/synonet --manual eth0 192.168.14.64 255.255.0.0
-/usr/syno/sbin/synonet --set_gateway 192.168.15.254
-/usr/syno/sbin/synonet --set_dns 192.168.252.254
+/usr/syno/sbin/synonet --manual eth0 192.0.2.10 255.255.255.0
+/usr/syno/sbin/synonet --set_gateway 192.0.2.1
+/usr/syno/sbin/synonet --set_dns 203.0.113.53
 /usr/syno/sbin/synonet --set_hostname cn406e
 ```
 

@@ -33,7 +33,7 @@
 ## 二、密码登录 + sudo -i（官方标准流程）
 
 ```bash
-ssh <管理员账号>@<NAS_IP> -p <SSH端口>     # 例：ssh myadmin@10.17.2.6 -p 22
+ssh <管理员账号>@<NAS_IP> -p <SSH端口>     # 例：ssh myadmin@<NAS_IP> -p 22
 # 输入该管理员账号的密码
 sudo -i                                     # 再输入一次同一个密码
 ```
@@ -97,7 +97,7 @@ DSM 6.2 场景下官方建议：先备份数据，再重装 DSM。
 
 DSM 网页端口（如 5000 / 自定义端口）被路由器转发了，不代表 SSH 端口也转发了。
 实测一台 DSM 在公网只暴露 3000，22 / 5000 / 5001 全部 Connection refused，
-但同一台机器在内网 10.0.13.15:22 正常返回 SSH-2.0-OpenSSH_8.2。
+但同一台机器在内网 <NAS_IP>:22 正常返回 SSH-2.0-OpenSSH_8.2。
 
 排查顺序：`ping <ip>` → 扫端口 → 看 DSM 里 SYNO.Core.Terminal 的 ssh_port → 再谈认证。
 
@@ -143,6 +143,6 @@ ls /usr/syno/sbin/ | grep -i syno    # 本机实际有哪些 CLI 工具
 ## 六、维护记录
 
 - 2026-09-27 周度巡检：本周无新增 SSH 故障案例。现有条目对应的实测环境为
-  DS918+ / DSM 7.3-81180（内网 10.0.13.15:22，OpenSSH_8.2）。
+  DS918+ / DSM 7.3-81180（内网 <NAS_IP>:22，OpenSSH_8.2）。
 - 相关补充：DSM 共享文件夹的细粒度权限（能删文件不能删文件夹）不属于 SSH/CLI 范畴，
   见 SKILL.md「细粒度权限：synoshare 做不到」一节。

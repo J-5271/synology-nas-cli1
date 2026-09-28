@@ -2,8 +2,17 @@
 
 ## 谁能改
 
-仓库私有，只有被邀请的协作者有写权限。包内含实测设备档案、内网 IP 段、SSH 运维细节，
-**不要转发、不要 fork 成公开仓库**。
+仓库**公开**（fork / clone 自由）。写权限只给被邀请的协作者，改动走 PR。
+
+## 公开仓库红线（最重要）
+
+公开 = 任何人可见、可被抓取、可被 fork 留档，**删除也留痕**。所以：
+
+- 禁止提交真实 IP / 内网网段 / 主机名 / 域名 / 序列号 / MAC
+- 禁止提交账号名、uid、密码、sid、云密钥、token
+- 禁止提交客户名、项目名、报价、控标参数、方案文档
+- 涉及具体环境的，一律占位符：`<NAS_IP>` / `<内网网段>` / `<管理员账号>` / `<密码>` / `<序列号>`
+- 提交前跑 `python scripts/pack_skill.py --mode full --no-state`，命中凭据会 exit 4
 
 ## 分支策略
 
@@ -11,9 +20,8 @@
 - 改任何东西先开分支：`git switch -c feat/<简短描述>`，PR 经 review 后由仓库所有者合并。
 - PR 需 1 个 review 通过才能合并。
 
-> 注：GitHub Free 计划的**私有仓库不支持分支保护 / rulesets**（API 返回
-> "Upgrade to GitHub Pro or make this repository public"）。仓库必须保持私有，
-> 所以上面这条目前靠约定执行，不靠平台强制。真要强制需升级 GitHub Pro。
+> 注：仓库转公开后**分支保护 / rulesets 已在 Free 计划可用**（私有仓库才需 Pro）。
+> 是否启用期限内保护，由仓库所有者决定；PR 会跑 GitHub Actions 校验见 `.github/workflows/ci.yml`。
 
 ## 提交前必做
 
