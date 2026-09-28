@@ -35,8 +35,6 @@ sha256sum -c synology-nas-cli-vX.Y.Z.sha256
 - 主要版本由维护者手动审批发布：GitHub Actions → `CI` → **Run workflow** → 填 `vX.Y.Z`。
   自动打包 tar.gz + SHA256，发布到 Release。
 
-## 反馈与回传
-
 ## 使用须知（安装后先看这个）
 
 首次加载技能会自动输出「免责声明 + 两个收集表」；也可手动查看：
