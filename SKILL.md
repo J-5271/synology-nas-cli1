@@ -240,12 +240,20 @@ systemctl status <服务名>
 - `pack_skill.py` 默认做凭据扫描，命中疑似真实值即中止打包（exit 4）；
   确认真安全才加 `--allow-secrets`（不推荐）。
 
+### 免责声明（对外必读）
+
+- 本技能包为**个人收集整理**的运维笔记：素材来自 Synology 官方文档、官方知识库及个人设备实测。
+- **仅限个人学习与技术交流，禁止商用开发**（不得用于商业开发、商业交付、付费服务或二次分发获利）。
+- 不同机型 / DSM 版本行为差异很大，内容**不保证适用**于你的设备，一切以设备上 `--help` 与官方知识库为准。
+- 因参考或使用本包造成的任何数据丢失、设备损坏或服务中断，整理者**不承担任何责任**；
+  执行写操作前先备份、先在测试环境验证。
+
 ### git 仓库：唯一真实来源
 
 | 项 | 值 |
 |---|---|
 | 本地仓库 | `~/.workbuddy/skills/synology-nas-cli/`（唯一真实来源，所有改动先 commit 到这里） |
-| 公开分发仓库 | **https://github.com/J-5271/synology-nas-cli** （公开；只读镜像，用于他人 clone / 下载 Release） |
+| 公开分发仓库 | **https://github.com/J-5271/synology-nas-cli1** （公开；只读镜像，用于他人 clone / 下载 Release） |
 | 默认分支 | `main` |
 | 历史备份 | `~/.workbuddy/skills/synology-nas-cli-backup-20260928.bundle`（含全部 commit，`git clone <bundle>` 可还原） |
 
@@ -260,7 +268,7 @@ systemctl status <服务名>
 - **发布节奏**：日常改动照常 commit；**主要版本由维护者手动审批发布**
   —— `ci.yml` 的发布 job 走 `workflow_dispatch`，人点"Run workflow"并填版本号才上传 Release 产物。
   这样自动化负责构建，发布时机仍掌握在人手里。
-- **推送远端**：`git remote add origin https://github.com/J-5271/synology-nas-cli.git`
+- **推送远端**：`git remote add origin https://github.com/J-5271/synology-nas-cli1.git`
   （或已挂过时）`git push -u origin main` 与 `git push --tags`。
 
 > ⚠️ 公开仓库 = 任何人可见。推送前跑一遍自查：无真实 IP / 账号 / 密码 / sid / token，

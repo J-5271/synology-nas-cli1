@@ -1,7 +1,18 @@
 # synology-nas-cli
 
+> ## 免责声明
+>
+> 本技能包为**个人收集整理**的学习与运维笔记，内容来自 Synology 官方文档、官方知识库
+> 以及个人设备上的实测记录，**仅供个人学习与技术交流使用**。
+>
+> - **禁止商用开发**：不得用于任何商业开发、商业交付、付费服务或二次分发获利。
+> - **无担保**：不同机型 / DSM 版本差异很大，不保证内容适用于你的设备。
+> - **风险自负**：因参考或使用本包造成的任何数据丢失、设备损坏或服务中断，
+>   整理者不承担任何责任。执行任何写操作前请自行备份，并先在测试环境验证。
+> - 商标与版权归各自权利人所有；若内容涉及侵权，请联系删除。
+
 Synology / 群晖 NAS 管理技能包。唯一真实来源是**本地 git 仓库**；
-GitHub 公开仓库 <https://github.com/J-5271/synology-nas-cli> 是**只读分发镜像**。
+GitHub 公开仓库 <https://github.com/J-5271/synology-nas-cli1> 是**只读分发镜像**。
 
 ⚠️ 分发仓库是公开的：真实 IP、主机名、序列号、账号、客户名**一律不得入库**，一律占位符。
 注意 git **历史**也会留痕——带敏感信息的旧 commit 需要重写（filter-repo），不是删文件就行。
@@ -10,7 +21,7 @@ GitHub 公开仓库 <https://github.com/J-5271/synology-nas-cli> 是**只读分�
 
 ```bash
 # 方式一：直接 clone（跟随最新提交）
-git clone https://github.com/J-5271/synology-nas-cli.git ~/.workbuddy/skills/synology-nas-cli
+git clone https://github.com/J-5271/synology-nas-cli1.git ~/.workbuddy/skills/synology-nas-cli
 
 # 方式二：用 Release 里的稳定版（推荐）
 # 下载 synology-nas-cli-vX.Y.Z.tar.gz + 同名 .sha256，校验后解压到

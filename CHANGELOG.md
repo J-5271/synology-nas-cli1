@@ -19,7 +19,7 @@
 
 ## 2026-09-28 · 分发与安全策略更新
 
-- **公开分发**：GitHub 公开仓库 https://github.com/J-5271/synology-nas-cli 作为分发主渠道，
+- **公开分发**：GitHub 公开仓库 https://github.com/J-5271/synology-nas-cli1 作为分发主渠道，
   他人可 clone 或下载 Release 的 `.tar.gz`；本地 git 仍是唯一真实来源。
 - **版本与发布**：采用语义化版本 tag；CI 负责构建，**主要版本由维护者手动 workflow_dispatch 审批发布**。
 - **新增「安全与隐私」章节**：明确无自动遥测、无出站上报、支持完全离线使用、
@@ -29,6 +29,12 @@
 - 实测补充（DS423+ / DSM 7.2.1）：后台任务需用用户身份 `nohup`（`sudo -i sh -c` 起的会被杀）；
   国内网络 Docker Hub 不通，走 `docker.m.daocloud.io`；BusyBox `ps` 要加 `w`。
 - 实测补充：Git Bash 调 DSM API 传 `/xxx` 路径会被转成 Windows 路径，需 `export MSYS_NO_PATHCONV=1`。
+
+## 2026-09-28 · 免责声明与仓库更名
+
+- 新增**免责声明**（README.md / SKILL.md 顶部）：个人收集整理、仅供学习交流、
+  **禁止商用开发**、无担保、风险自负。
+- 公开分发仓库更名为 https://github.com/J-5271/synology-nas-cli1 （原 synology-nas-cli 弃用）。
 
 ## 2026-09-27 · v2026-09-27
 
