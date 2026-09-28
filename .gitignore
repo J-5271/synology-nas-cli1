@@ -1,0 +1,17 @@
+# 打包产物（生成物，不入库）
+build/
+
+# 临时 COS 凭证（用完即删，绝不入库）
+*cred*.json
+.cos_cred*
+_cred.json
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
