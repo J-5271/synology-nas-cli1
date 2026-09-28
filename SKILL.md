@@ -13,7 +13,8 @@ SSH root 登录、SSH RSA 密钥登录两篇文章。
 ### 📢 首次加载必弹（每次触发本技能，第一件事就把下面这段原样输出给用户）
 
 > **执行要求**：识别到本技能被启用后，**先输出下面整段内容**，再回答或执行任何操作。
-> 命令行等价物：`python3 scripts/first_run.py`（内容完全一致，脚本不会连设备、无副作用）。
+> 命令行等价物：`python3 scripts/first_run.py`（内容一致，脚本额外多打一行当前版本号；
+> 不会连设备、无副作用）。
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -33,6 +34,13 @@ SSH root 登录、SSH RSA 密钥登录两篇文章。
    https://docs.qq.com/form/page/DQ2RsRGRjc3JnRHFi
 2) 未解决问题 / 售前方案咨询（卡住了、要方案、要报价思路）
    https://docs.qq.com/form/page/DQ1dTRXdjTUZ6SFR4
+
+【版本与更新】
+1) GitHub 更新地址（能访问优先）
+   https://github.com/J-5271/synology-nas-cli1/releases
+2) 腾讯文档版本记录（访问不了 GitHub 走这里）
+   https://docs.qq.com/aio/DQ05IdUxxR3ZtUndG
+   检查更新：python3 scripts/check_update.py
 
 提交前请先脱敏：不要填真实 IP、序列号、账号、密码、sid。
 本包不做任何自动遥测，无出站上报。
@@ -136,7 +144,7 @@ export SYNO_HOST="http://<nas>:5000" SYNO_USER=<账号> SYNO_PASS='<密码>'
 python3 scripts/syno.py --list /volume1/video               # 列目录（只读）
 python3 scripts/syno.py a.mp4 b.mp4 --remote /volume1/video  # 多文件上传
 ls *.m4a | python3 scripts/syno.py --remote /volume1/audio   # 管道上传
-python3 scripts/syno.py --download /volume1/video/a.mp4 --out .  # 下载
+python3 scripts/syno.py --download /volume1/video/a.mp4 --output-dir .  # 下载
 python3 scripts/syno.py a.mp4 --no-overwrite --remote /x/y   # 不覆盖已存在文件
 ```
 

@@ -98,6 +98,25 @@
 - SKILL.md「更新检查」章节重写为「更新与同步节奏：本地优先 + 每晚统一推送」，
   含五阶段表（改 / 存 / 推 / 宣 / 查）；README「版本与同步节奏」同步更新。
 
+## 2026-09-29 · PM 评审与全量代码优化
+
+- **修复** `pack_skill.py` 打包清单漏文件：`DOC_ORDER` 补 README / VERSION / requirements.txt /
+  syno.py / check_update.py / first_run.py，回传 ima 的包现在含全部 16 个文件。
+- **修复** `syno.py` 下载不校验 API 错误响应：文件不存在时会把 JSON 错误写进下载文件；
+  现在检测 Content-Type 为 application/json 即抛错，不再产出伪文件。
+- **优化** `syno.py`：多文件上传/下载改为单文件失败不中断、结束统一汇总（exit 1）；
+  >512MB 文件上传前警告内存占用；docstring 里 `--out` 改为正确的 `--output-dir`。
+- **优化** `dsm_api.py`：登录改 POST 优先（密码不进 URL / 访问日志），POST 不通回退 GET；
+  登录失败按错误码给出下一步建议（400/401/403/105/117/102/103）。
+- **新增** 各脚本 `--version`：nas_exec / dsm_api / syno / check_update 统一输出 `v<VERSION>`。
+- **修复** `nas_exec.py --dry-run` 未设 NAS_HOST 直接报错：dry-run 不连设备，不再强制要求 host。
+- **优化** `first_run.py`：弹窗新增「版本与更新」段（GitHub Release + 腾讯文档镜像 +
+  check_update 用法），末尾打印当前版本；SKILL.md 必弹区块同步。
+- **修复** 文档错误：SKILL.md 下载示例 `--out` → `--output-dir`；
+  README 目录表 syno.py 去掉未实现的「进度」字样。
+- **修复** CI：Release 打包排除个人水位文件 `.update_state.json`。
+- **新增** README「脚本退出码约定」表（0/1/2/3/4 含义统一成文）。
+
 ## 2026-09-27 · v2026-09-27
 
 - 新增「细粒度权限：synoshare 做不到」：ACL 删除位 D/DC 拆分、两条规则、

@@ -16,7 +16,7 @@ SYNO.FileStation.Upload / Download / List、多文件、stdin 管道、--no-over
     syno.py --list /volume1/下载                     # 列目录（只读）
     syno.py a.mp4 b.mp4 --remote /volume1/video      # 上传多个文件
     ls *.m4a | syno.py --remote /volume1/audio       # 管道上传
-    syno.py --download /volume1/video/a.mp4 --out .  # 下载
+    syno.py --download /volume1/video/a.mp4 --output-dir .  # 下载
     syno.py a.mp4 --no-overwrite --remote /x/y       # 不覆盖已存在文件
 
 上传走 multipart/form-data（SYNO.FileStation.Upload v2），下载走 SYNO.FileStation.Download v2。
@@ -34,6 +34,17 @@ import uuid
 
 AUTH_API = "SYNO.API.Auth"
 AUTH_VERSIONS = (7, 6, 3, 2)
+SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 上传当前实现是整文件读入内存拼 multipart，超过该值先警告
+BIG_FILE_WARN = 512 * 1024 * 1024  # 512 MB
+
+
+def skill_version():
+    try:
+        with open(os.path.join(SKILL_ROOT, "VERSION"), encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return "未知"
 
 
 class FileStation:
@@ -102,6 +113,9 @@ class FileStation:
     def upload(self, local_file, remote_path, overwrite=True):
         filename = os.path.basename(local_file)
         size = os.path.getsize(local_file)
+        if size > BIG_FILE_WARN:
+            print(f"[WARN] {filename} 约 {size / 1073741824:.1f} GB，当前实现整文件读入内存；"
+                  f"超大文件建议改用 File Station 或分段上传", file=sys.stderr)
         ctype = mimetypes.guess_type(filename)[0] or "application/octet-stream"
         boundary = "----WorkBuddySyno" + uuid.uuid4().hex
         parts = []
@@ -152,6 +166,12 @@ class FileStation:
             params["_sid"] = self.sid
         url = f"{self.host}/webapi/entry.cgi?" + urllib.parse.urlencode(params)
         with self.opener.open(url, timeout=300) as resp:
+            # API 出错（路径不存在 / 权限不足）时返回 JSON，不拦的话会把错误内容写进下载文件
+            ctype = resp.headers.get("Content-Type", "")
+            if "application/json" in ctype:
+                result = json.loads(resp.read().decode("utf-8", "replace"))
+                code = (result.get("error") or {}).get("code")
+                raise RuntimeError(f"download failed (DSM error {code}): {result}")
             with open(local_path, "wb") as f:
                 while True:
                     chunk = resp.read(1024 * 64)
@@ -175,7 +195,12 @@ def main():
     p.add_argument("--output-dir", default=".", help="下载到本地目录（默认当前目录）")
     p.add_argument("--no-overwrite", action="store_true", help="上传时不覆盖已存在文件")
     p.add_argument("--no-verify-ssl", action="store_true", help="跳过 TLS 校验（自签名）")
+    p.add_argument("--version", action="store_true", help="显示技能包版本后退出")
     args = p.parse_args()
+
+    if args.version:
+        print(f"synology-nas-cli v{skill_version()}")
+        return 0
 
     if not args.host or not args.user:
         p.error("需要 --host/--user（或 SYNO_HOST/SYNO_USER 环境变量）")
@@ -201,9 +226,17 @@ def main():
         p.error("未指定文件")
 
     if args.download:
+        failed = []
         for rf in raw:
-            out = fs.download(rf, args.output_dir)
-            print(f"✓ {rf} -> {out}")
+            try:
+                out = fs.download(rf, args.output_dir)
+                print(f"✓ {rf} -> {out}")
+            except Exception as e:  # noqa: BLE001 —— 单个失败不中断其余文件
+                failed.append(rf)
+                print(f"✗ {rf} 下载失败: {e}", file=sys.stderr)
+        if failed:
+            print(f"[ERROR] {len(failed)}/{len(raw)} 个文件下载失败", file=sys.stderr)
+            return 1
         return 0
 
     if not args.remote:
@@ -223,9 +256,17 @@ def main():
             print(f"[ERROR] 文件不存在: {e}", file=sys.stderr)
         return 1
 
+    failed = []
     for lf in local_files:
-        fs.upload(lf, args.remote, overwrite=not args.no_overwrite)
-        print(f"✓ {os.path.basename(lf)} -> {args.remote}")
+        try:
+            fs.upload(lf, args.remote, overwrite=not args.no_overwrite)
+            print(f"✓ {os.path.basename(lf)} -> {args.remote}")
+        except Exception as e:  # noqa: BLE001 —— 单个失败不中断其余文件
+            failed.append(lf)
+            print(f"✗ {os.path.basename(lf)} 上传失败: {e}", file=sys.stderr)
+    if failed:
+        print(f"[ERROR] {len(failed)}/{len(local_files)} 个文件上传失败", file=sys.stderr)
+        return 1
     return 0
 
 

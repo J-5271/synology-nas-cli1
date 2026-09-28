@@ -81,7 +81,7 @@ python3 scripts/first_run.py
 | `scripts/nas_exec.py` | SSH 执行器，内置只读/改配置守卫 |
 | `scripts/dsm_api.py` | DSM Web API 客户端 |
 | `scripts/first_run.py` | 打印使用须知（免责声明 + 两个收集表入口） |
-| `scripts/syno.py` | FileStation 上传/下载/列目录（多文件、管道、进度、不覆盖开关） |
+| `scripts/syno.py` | FileStation 上传/下载/列目录（多文件、管道、不覆盖开关、失败不中断汇总） |
 | `scripts/pack_skill.py` | 打包（full/delta）+ 凭据扫描，命中凭据 exit 4 |
 | `scripts/cos_upload.py` | COS 上传（ima 回传第二步） |
 | `scripts/check_update.py` | 检查 GitHub 是否有新版本（Release / tag / commit 三级 fallback） |
@@ -103,3 +103,15 @@ python3 scripts/first_run.py
 - 包内禁止真实账号 / 密码 / sid / 云密钥，示例一律占位符（`<账号>` / `<密码>` / `$ENV`）。
 - 打包前跑凭据扫描，命中即中止（exit 4），不要用 `--allow-secrets`。
 - 临时 COS 凭证用完即删，`*cred*.json` 已被 `.gitignore` 排除。
+
+## 脚本退出码约定
+
+| 码 | 含义 |
+|---|---|
+| 0 | 成功（`check_update.py` 为「有更新」） |
+| 1 | 通用错误（部分文件失败、上传失败等） |
+| 2 | 用法错误 / 守卫拦截（`nas_exec.py` 改配置未加 `--yes`） |
+| 3 | 无变更（`pack_skill.py --mode delta` 无新增；`check_update.py` 无更新） |
+| 4 | 安全类（`pack_skill.py` 脱敏扫描命中；`check_update.py` 查询失败） |
+
+查当前版本：`python3 scripts/nas_exec.py --version`（`dsm_api.py` / `syno.py` 同样支持）。

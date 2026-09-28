@@ -40,6 +40,17 @@ import subprocess
 import sys
 import time
 
+SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def skill_version():
+    try:
+        with open(os.path.join(SKILL_ROOT, "VERSION"), encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return "未知"
+
+
 HEALTH_CMD = r"""
 echo "===== DSM VERSION ====="; cat /etc/VERSION 2>/dev/null || echo "(no /etc/VERSION)"
 echo; echo "===== HOSTNAME / KERNEL ====="; hostname; uname -a
@@ -271,9 +282,15 @@ def main():
     p.add_argument("--install-key", action="store_true",
                    help="copy a public key to the NAS for passwordless login")
     p.add_argument("--pubkey", default="~/.ssh/id_rsa.pub")
+    p.add_argument("--version", action="store_true", help="show skill version and exit")
     args = p.parse_args()
 
-    if not args.host:
+    if args.version:
+        print(f"synology-nas-cli v{skill_version()}")
+        return 0
+
+    # --dry-run 不连设备，允许没设 NAS_HOST（方便 CI 与本地预演守卫）
+    if not args.host and not args.dry_run:
         print("[ERROR] NAS_HOST is required (or pass --host).", file=sys.stderr)
         return 2
 
@@ -308,8 +325,9 @@ def main():
 
     if args.dry_run:
         auth = f"key={args.key}" if args.key else ("password" if args.password else "agent/default keys")
+        target_host = args.host or "(未设置 NAS_HOST)"
         print("# DRY RUN - nothing executed")
-        print(f"# target  : {args.user}@{args.host}:{args.port}")
+        print(f"# target  : {args.user}@{target_host}:{args.port}")
         print(f"# ssh auth: {auth}")
         print(f"# run as  : root via 'sudo -i'" if sudo else "# run as  : root (direct)")
         print("# command :")

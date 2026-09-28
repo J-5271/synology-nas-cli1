@@ -204,7 +204,12 @@ def main():
     ap.add_argument("--set-version", metavar="X.Y.Z", help="手动设置本地版本基线")
     ap.add_argument("--timeout", type=int, default=15, help="单次 HTTP 超时秒数，默认 15")
     ap.add_argument("--repo", help="覆盖仓库，格式 owner/name（默认 %s/%s）" % (REPO_OWNER, REPO_NAME))
+    ap.add_argument("--version", action="store_true", help="显示技能包版本后退出")
     args = ap.parse_args()
+
+    if args.version:
+        print("synology-nas-cli v%s" % read_version())
+        return 0
 
     global API_BASE, REPO_URL, RELEASES_URL
     if args.repo:

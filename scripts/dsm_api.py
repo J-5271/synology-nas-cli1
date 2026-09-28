@@ -40,6 +40,26 @@ import http.cookiejar
 
 AUTH_API = "SYNO.API.Auth"
 AUTH_VERSIONS = (7, 6, 3, 2)
+SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# 登录失败的常见错误码 → 给用户的下一步建议（见 references/dsm-web-api.md 第三节）
+LOGIN_HINTS = {
+    102: "API 不存在——先用 `dsm_api.py apis` 查注册表，别当成权限不足",
+    103: "该 Auth 版本不可用——脚本会自动降版本重试，若全失败请报实测记录",
+    105: "权限不足——确认账号在 administrators 群组",
+    117: "需要二次验证（OTP）——脚本暂不支持 OTP 流程",
+    400: "账号或密码错误——核对 DSM_ACCOUNT / DSM_PASSWORD",
+    401: "账号被禁用——到 DSM 用户列表启用",
+    403: "多次失败被锁定或需要二次验证——查 控制面板 > 安全性",
+}
+
+
+def skill_version():
+    try:
+        with open(os.path.join(SKILL_ROOT, "VERSION"), encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return "未知"
 
 
 class DSM:
@@ -70,26 +90,44 @@ class DSM:
         with self.opener.open(url, timeout=40) as r:
             return json.loads(r.read().decode("utf-8", "replace"))
 
+    def _post(self, cgi, params):
+        url = f"{self.host}/webapi/{cgi}"
+        body = urllib.parse.urlencode(params).encode("utf-8")
+        req = urllib.request.Request(
+            url, data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"})
+        with self.opener.open(req, timeout=40) as r:
+            return json.loads(r.read().decode("utf-8", "replace"))
+
     # --------------------------------------------------------------- login
     def login(self):
+        """POST 优先（密码不进 URL，不落进访问日志/代理日志），POST 不通回退 GET。"""
         last = None
         for ver in AUTH_VERSIONS:
+            params = {
+                "api": AUTH_API, "version": ver, "method": "Login",
+                "account": self.account, "passwd": self.password,
+                "session": self.session, "format": "sid",
+            }
             try:
-                r = self._get("entry.cgi", {
-                    "api": AUTH_API, "version": ver, "method": "Login",
-                    "account": self.account, "passwd": self.password,
-                    "session": self.session, "format": "sid",
-                })
-            except Exception as e:
-                last = {"_exc": str(e)}
-                continue
+                r = self._post("entry.cgi", params)
+            except Exception:
+                try:
+                    r = self._get("entry.cgi", params)
+                except Exception as e:
+                    last = {"_exc": str(e)}
+                    continue
             if r.get("success"):
                 self.sid = r["data"]["sid"]
                 self.auth_version = ver
                 return True
             last = r
+        code = (last or {}).get("error", {}).get("code") if isinstance(last, dict) else None
+        hint = LOGIN_HINTS.get(code, "")
         print(f"[ERROR] login failed for {self.account}@{self.host}: "
               f"{json.dumps(last, ensure_ascii=False)}", file=sys.stderr)
+        if hint:
+            print(f"        下一步：{hint}", file=sys.stderr)
         return False
 
     def logout(self):
@@ -131,6 +169,9 @@ def main():
     if len(sys.argv) < 2:
         print(__doc__)
         return 2
+    if sys.argv[1] in ("--version", "-V"):
+        print(f"synology-nas-cli v{skill_version()}")
+        return 0
     cmd = sys.argv[1]
 
     dsm = DSM()

@@ -33,16 +33,22 @@ SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUILD_DIR = os.path.join(SKILL_ROOT, "build")
 STATE_FILE = os.path.join(BUILD_DIR, ".sync_state.json")
 
-# 打包顺序：主文档 → 参考 → 变更日志 → 脚本（脚本自身也要进包，否则回传的版本无法还原目录）
+# 打包顺序：主文档 → 说明 → 参考 → 变更日志/版本 → 脚本（脚本自身也要进包，否则回传的版本无法还原目录）
 DOC_ORDER = [
     ("SKILL.md", "技能主文档 {}", None),
+    ("README.md", "安装与使用说明 {}", None),
     ("references/dsm-web-api.md", "DSM Web API 通路", None),
     ("references/cli-commands.md", "官方 CLI 命令参考", None),
     ("references/error-codes.md", "错误码对照表", None),
     ("references/ssh-and-troubleshooting.md", "SSH 登录与故障排查", None),
     ("CHANGELOG.md", "版本记录 {}", None),
+    ("VERSION", "当前版本基线 {}", None),
+    ("requirements.txt", "Python 依赖清单 {}", "text"),
     ("scripts/dsm_api.py", "脚本：{}", "python"),
     ("scripts/nas_exec.py", "脚本：{}", "python"),
+    ("scripts/syno.py", "脚本：{}", "python"),
+    ("scripts/check_update.py", "脚本：{}", "python"),
+    ("scripts/first_run.py", "脚本：{}", "python"),
     ("scripts/pack_skill.py", "脚本：{}", "python"),
     ("scripts/cos_upload.py", "脚本：{}", "python"),
 ]

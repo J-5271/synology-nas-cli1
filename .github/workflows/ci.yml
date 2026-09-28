@@ -67,7 +67,8 @@ jobs:
           VERSION="${{ inputs.version }}"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           tar czf "synology-nas-cli-$VERSION.tar.gz" \
-            --exclude='.git*' --exclude='build' --exclude='__pycache__' .
+            --exclude='.git*' --exclude='build' --exclude='__pycache__' \
+            --exclude='.update_state.json' .
           sha256sum "synology-nas-cli-$VERSION.tar.gz" > "synology-nas-cli-$VERSION.sha256"
           cat "synology-nas-cli-$VERSION.sha256"
 
