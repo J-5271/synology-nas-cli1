@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      NAS_HOST: 10.0.0.1
+      NAS_USER: root
+      NAS_PORT: "22"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: 语法检查
+        run: python -m py_compile scripts/*.py
+
+      - name: 守卫-只读命令应放行
+        run: |
+          python scripts/nas_exec.py --dry-run "cat /etc/VERSION; df -h"
+          python scripts/nas_exec.py --dry-run "/usr/syno/sbin/synouser --help"
+
+      # 守卫只在「非 dry-run」时生效：不加 --yes 必须返回 2，且不连设备
+      - name: 守卫-改配置应拦截
+        run: |
+          set +e
+          python scripts/nas_exec.py "/usr/syno/sbin/synouser --setpw <账号> <密码>"
+          rc1=$?
+          python scripts/nas_exec.py "/usr/syno/sbin/synonet --manual eth0 1.2.3.4 255.255.255.0"
+          rc2=$?
+          python scripts/nas_exec.py "/usr/syno/sbin/synoshare --setuser private RW + alice"
+          rc3=$?
+          set -e
+          echo "exit codes: setpw=$rc1 synonet=$rc2 synoshare=$rc3"
+          [ "$rc1" -ne 0 ] && [ "$rc2" -ne 0 ] && [ "$rc3" -ne 0 ]
+
+      - name: 凭据扫描（命中真实凭据即失败 exit 4）
+        run: python scripts/pack_skill.py --mode full --no-state

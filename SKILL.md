@@ -108,7 +108,8 @@ export NAS_HOST=<NAS的IP> NAS_USER=<管理员账号> NAS_PASS='<密码>' NAS_PO
 
 scripts/nas_exec.py --health                     # 只读探针，先跑这个
 scripts/nas_exec.py "cat /etc/VERSION; df -h"    # 任意只读命令
-scripts/nas_exec.py --dry-run "<危险命令>"        # 先看清楚再决定
+scripts/nas_exec.py --dry-run "<危险命令>"        # 只打印将要执行什么（不连设备、不过守卫）
+scripts/nas_exec.py "<改配置命令>"                # 守卫：不加 --yes 直接返回 2，拒绝执行
 scripts/nas_exec.py - <<'EOS'                    # 多行脚本：从 stdin 读，最保真
 for t in synouser synoshare synonet; do
   [ -x "/usr/syno/sbin/$t" ] && echo "OK $t"
@@ -272,7 +273,8 @@ systemctl status <服务名>
 ```bash
 # 1. 改动脚本后必做
 python -m py_compile scripts/*.py                       # 语法检查
-python scripts/nas_exec.py --dry-run "<命令>"            # 守卫：只读放行 / 改配置拦截
+python scripts/nas_exec.py "<改配置命令>"                # 守卫：不加 --yes 应返回 2
+python scripts/nas_exec.py --dry-run "<命令>"            # 只打印将要执行什么，不校验守卫
 
 # 2. 周：只打新增（无变更会打印 NO_CHANGES 并返回 3）
 python scripts/pack_skill.py --mode delta
