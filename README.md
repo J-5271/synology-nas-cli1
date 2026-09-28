@@ -1,9 +1,35 @@
 # synology-nas-cli
 
-Synology / 群晖 NAS 管理技能包。唯一真实来源，**本地 git 仓库**（无远端）。
+Synology / 群晖 NAS 管理技能包。唯一真实来源是**本地 git 仓库**；
+GitHub 公开仓库 <https://github.com/J-5271/synology-nas-cli> 是**只读分发镜像**。
 
-⚠️ 若日后挂载为公开远端：真实 IP、主机名、序列号、账号、客户名**一律不得入库**，一律占位符。
+⚠️ 分发仓库是公开的：真实 IP、主机名、序列号、账号、客户名**一律不得入库**，一律占位符。
 注意 git **历史**也会留痕——带敏感信息的旧 commit 需要重写（filter-repo），不是删文件就行。
+
+## 安装
+
+```bash
+# 方式一：直接 clone（跟随最新提交）
+git clone https://github.com/J-5271/synology-nas-cli.git ~/.workbuddy/skills/synology-nas-cli
+
+# 方式二：用 Release 里的稳定版（推荐）
+# 下载 synology-nas-cli-vX.Y.Z.tar.gz + 同名 .sha256，校验后解压到
+# ~/.workbuddy/skills/synology-nas-cli/
+sha256sum -c synology-nas-cli-vX.Y.Z.sha256
+```
+
+## 版本发布
+
+- 日常改动照常 commit 到本地仓库。
+- 主要版本由维护者手动审批发布：GitHub Actions → `CI` → **Run workflow** → 填 `vX.Y.Z`。
+  自动打包 tar.gz + SHA256，发布到 Release。
+
+## 反馈与回传
+
+- 改进建议 / 问题：GitHub Issue 或 PR。
+- 实测记录、命令输出、文档：上传到 Synology **文件请求链接**
+  <http://jiegy.quickconnect.cn/sharing/Y4sPpU0iP>（无需 DSM 账号，上传前请先脱敏）。
+- 本包**不做任何自动遥测**，无出站上报，可完全离线使用。
 
 ## 目录
 
