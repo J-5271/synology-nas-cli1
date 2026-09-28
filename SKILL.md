@@ -239,6 +239,18 @@ systemctl status <服务名>
 - `pack_skill.py` 默认做凭据扫描，命中疑似真实值即中止打包（exit 4）；
   确认真安全才加 `--allow-secrets`（不推荐）。
 
+### git 仓库：唯一真实来源
+
+| 项 | 值 |
+|---|---|
+| 仓库 | `https://github.com/J-5271/synology-nas-cli.git`（**私有**） |
+| 本地路径 | `~/.workbuddy/skills/synology-nas-cli/` |
+| 默认分支 | `main` |
+| 认证 | Git Credential Manager OAuth（`git credential-manager github login`），token 存 Windows 凭据管理器，不落 `.git/config` 明文 |
+
+任何改动先 `git commit`，再谈 ima 回传。git 历史即版本记录，回滚用 `git revert` / `git checkout <sha> -- <file>`。
+`.gitignore` 已排除 `build/`（打包产物）与 `*cred*.json`（临时 COS 凭证）。
+
 ### 技能包维护与 ima 同步（周增量 + 月全量）
 
 | 项 | 值 |
