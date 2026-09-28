@@ -38,8 +38,8 @@ sha256sum -c synology-nas-cli-vX.Y.Z.sha256
 ## 反馈与回传
 
 - 改进建议 / 问题：GitHub Issue 或 PR。
-- 实测记录、命令输出、文档：上传到 Synology **文件请求链接**
-  <http://jiegy.quickconnect.cn/sharing/Y4sPpU0iP>（无需 DSM 账号，上传前请先脱敏）。
+- 实测记录、命令输出、改进建议：填写**腾讯文档在线表格（收集表，仅允许填写提交）**
+  —— 链接见 `SKILL.md`「使用报告回传入口」一节。填写前请脱敏。
 - 本包**不做任何自动遥测**，无出站上报，可完全离线使用。
 
 ## 目录
