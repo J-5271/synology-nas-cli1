@@ -244,15 +244,53 @@ systemctl status <服务名>
 
 | 项 | 值 |
 |---|---|
-| 仓库 | **本地 git 仓库**（无远端；2026-09-28 已解绑 GitHub remote） |
-| 本地路径 | `~/.workbuddy/skills/synology-nas-cli/` |
+| 本地仓库 | `~/.workbuddy/skills/synology-nas-cli/`（唯一真实来源，所有改动先 commit 到这里） |
+| 公开分发仓库 | **https://github.com/J-5271/synology-nas-cli** （公开；只读镜像，用于他人 clone / 下载 Release） |
 | 默认分支 | `main` |
 | 历史备份 | `~/.workbuddy/skills/synology-nas-cli-backup-20260928.bundle`（含全部 commit，`git clone <bundle>` 可还原） |
 
 任何改动先 `git commit`，再谈 ima 回传。git 历史即版本记录，回滚用 `git revert` / `git checkout <sha> -- <file>`。
 `.gitignore` 已排除 `build/`（打包产物）与 `*cred*.json`（临时 COS 凭证）。
 
-> 需要远端时再挂：`git remote add origin <url> && git push -u origin main`。
+#### 分发与版本策略（2026-09-28 定）
+
+- **分发**：GitHub 公开仓库为主渠道。使用者 `git clone <repo>`，或下载 Release 里打好的
+  `.tar.gz`（tag 对应稳定版）。不要让人追 `main` HEAD。
+- **版本**：语义化版本 `vX.Y.Z`，打 tag 即代表一个可安装的版本；预发布用 `-rc.N`。
+- **发布节奏**：日常改动照常 commit；**主要版本由维护者手动审批发布**
+  —— `ci.yml` 的发布 job 走 `workflow_dispatch`，人点"Run workflow"并填版本号才上传 Release 产物。
+  这样自动化负责构建，发布时机仍掌握在人手里。
+- **推送远端**：`git remote add origin https://github.com/J-5271/synology-nas-cli.git`
+  （或已挂过时）`git push -u origin main` 与 `git push --tags`。
+
+> ⚠️ 公开仓库 = 任何人可见。推送前跑一遍自查：无真实 IP / 账号 / 密码 / sid / token，
+> 见上方「脱敏规范」。`pack_skill.py` 的凭据扫描同样适用于推送前检查。
+
+### 安全与隐私（对外声明，2026-09-28 定）
+
+本技能包的立场是**用户主动回传，不做自动遥测**：
+
+- 脚本本身**没有任何出站上报行为**：不收集主机名、内网 IP、用户名、文件路径、共享名。
+- 所有与 NAS 的通信都由使用者自己发起（本机 → 自己的 NAS），凭据只走环境变量，不落盘、不写日志。
+- 支持**完全离线使用**：不开任何外网功能也能跑完 SSH / DSM Web API 两条通路。
+- 使用者改进内容、实测记录、问题反馈，通过下方回传入口**由人主动提交**；
+  提交前请自行抹掉 IP、序列号、账号名等标识信息（规则同「脱敏规范」）。
+- 依赖与供应链：CI 里的第三方 Actions 固定到 commit SHA，不用可变标签；
+  版本发布产物附 SHA256 校验和。
+
+### 使用报告回传入口
+
+| 项 | 值 |
+|---|---|
+| 方式 | Synology **文件请求链接**（外部用户可直接上传文件，无需 DSM 账号） |
+| 地址 | **http://jiegy.quickconnect.cn/sharing/Y4sPpU0iP** |
+| 落盘位置 | NAS 上 `docker > gitea > 回传`，按 `上传者姓名(请求者)` 分子目录 |
+| 适合回传 | 新设备实测记录、命令输出、改进建议文档、脚本补丁 |
+| 不适合 | 任何含密码 / sid / 私钥 / 真实 IP 的文件（先脱敏再传） |
+
+> 该链接无密码、长期有效。若怀疑泄露：File Station → 工具 → 共享链接管理员 → 删除/重建。
+> 注：DSM 的「文件请求」只能在 File Station UI 里创建（右键文件夹 → 创建文件请求）；
+> 用 `SYNO.FileStation.Sharing` API 建出来的链接 `enable_upload` 恒为 false，是下载型，不能收文件。
 
 ### 技能包维护与 ima 同步（周增量 + 月全量）
 

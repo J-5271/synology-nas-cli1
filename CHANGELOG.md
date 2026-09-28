@@ -17,6 +17,19 @@
 - 自动化：周度改为「周增量回传」（automation-1790221817758）；新增月度整合提醒
   （automation-1790567281158，每月 1 日 21:00 打整包覆盖主条目）。
 
+## 2026-09-28 · 分发与安全策略更新
+
+- **公开分发**：GitHub 公开仓库 https://github.com/J-5271/synology-nas-cli 作为分发主渠道，
+  他人可 clone 或下载 Release 的 `.tar.gz`；本地 git 仍是唯一真实来源。
+- **版本与发布**：采用语义化版本 tag；CI 负责构建，**主要版本由维护者手动 workflow_dispatch 审批发布**。
+- **新增「安全与隐私」章节**：明确无自动遥测、无出站上报、支持完全离线使用、
+  第三方 Actions 固定 SHA、Release 附校验和。
+- **新增使用报告回传入口**：Synology 文件请求链接（目标目录 `docker/gitea/回传`），
+  由使用者主动上传实测记录/改进建议，不做自动收集。
+- 实测补充（DS423+ / DSM 7.2.1）：后台任务需用用户身份 `nohup`（`sudo -i sh -c` 起的会被杀）；
+  国内网络 Docker Hub 不通，走 `docker.m.daocloud.io`；BusyBox `ps` 要加 `w`。
+- 实测补充：Git Bash 调 DSM API 传 `/xxx` 路径会被转成 Windows 路径，需 `export MSYS_NO_PATHCONV=1`。
+
 ## 2026-09-27 · v2026-09-27
 
 - 新增「细粒度权限：synoshare 做不到」：ACL 删除位 D/DC 拆分、两条规则、
