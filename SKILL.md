@@ -98,6 +98,23 @@ python3 scripts/dsm_api.py call SYNO.Core.User list 1 type=local
 - DSM 错误 102 = API 名不存在，不是权限不足。
 （如 SYNO.Core.CurrentUser 根本没注册，别误判成没权限。）
 
+#### 文件传输通路（上传 / 下载 / 列目录）
+
+用 `scripts/syno.py`（纯标准库，凭据走 `SYNO_HOST` / `SYNO_USER` / `SYNO_PASS`）：
+
+```bash
+export SYNO_HOST="http://<nas>:5000" SYNO_USER=<账号> SYNO_PASS='<密码>'
+python3 scripts/syno.py --list /volume1/video               # 列目录（只读）
+python3 scripts/syno.py a.mp4 b.mp4 --remote /volume1/video  # 多文件上传
+ls *.m4a | python3 scripts/syno.py --remote /volume1/audio   # 管道上传
+python3 scripts/syno.py --download /volume1/video/a.mp4 --out .  # 下载
+python3 scripts/syno.py a.mp4 --no-overwrite --remote /x/y   # 不覆盖已存在文件
+```
+
+只做文件传输（SYNO.FileStation.Upload / Download / List），不含任何改配置、删文件能力。
+实测坑：`SYNO.FileStation.List` 的 `folder_path=/` 根路径会返回 401，要用具体共享文件夹路径
+（如 `/volume1` 或 `/home`）；`_sid` 走 URL 查询参数或 POST body 均可，但 List 用 GET 更稳。
+
 #### SSH 通路
 
 用 `scripts/nas_exec.py`。它把下面三件事一次做完：SSH 登录 → sudo -i 提权 → 执行命令。

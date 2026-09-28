@@ -42,6 +42,14 @@
   避免公开仓库暴露 NAS 的 QuickConnect ID 与上传入口。
 - SKILL.md / README.md 同步更新回传说明与建议表头；链接待创建后填入。
 
+## 2026-09-28 · 新增文件传输脚本 syno.py
+
+- 参考 robinFdr/synology-nas-cli，新增 `scripts/syno.py`：FileStation 上传/下载/列目录，
+  支持多文件、stdin 管道、`--no-overwrite`、`--output-dir`、`--no-verify-ssl`；
+  纯标准库实现，凭据走 `SYNO_HOST/SYNO_USER/SYNO_PASS`，只做文件传输不碰配置。
+- 实测（DS423+ / DSM 7.2.1）：`--list` 列目录通过；`folder_path=/` 返回 401，
+  需用具体共享文件夹路径（如 `/home`）。
+
 ## 2026-09-27 · v2026-09-27
 
 - 新增「细粒度权限：synoshare 做不到」：ACL 删除位 D/DC 拆分、两条规则、

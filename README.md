@@ -56,6 +56,7 @@ sha256sum -c synology-nas-cli-vX.Y.Z.sha256
 | `references/ssh-and-troubleshooting.md` | SSH 连接与故障处理 |
 | `scripts/nas_exec.py` | SSH 执行器，内置只读/改配置守卫 |
 | `scripts/dsm_api.py` | DSM Web API 客户端 |
+| `scripts/syno.py` | FileStation 上传/下载/列目录（多文件、管道、进度、不覆盖开关） |
 | `scripts/pack_skill.py` | 打包（full/delta）+ 凭据扫描，命中凭据 exit 4 |
 | `scripts/cos_upload.py` | COS 上传（ima 回传第二步） |
 
