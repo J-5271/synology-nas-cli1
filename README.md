@@ -35,6 +35,19 @@ sha256sum -c synology-nas-cli-vX.Y.Z.sha256
 - 主要版本由维护者手动审批发布：GitHub Actions → `CI` → **Run workflow** → 填 `vX.Y.Z`。
   自动打包 tar.gz + SHA256，发布到 Release。
 
+## 检查更新
+
+```bash
+python3 scripts/check_update.py            # 有无更新 + 主要更新内容
+python3 scripts/check_update.py --json     # 机器可读
+python3 scripts/check_update.py --mark-seen   # 记录当前水位
+```
+
+- GitHub 更新地址：<https://github.com/J-5271/synology-nas-cli1>（Release 页可下载带 SHA256 的稳定包）
+- **访问不了 GitHub？**看腾讯文档《synology-nas-cli 版本更新记录》：
+  <https://docs.qq.com/aio/DQ05IdUxxR3ZtUndG> —— 同步记录当前版本与历史更新内容。
+- 维护者每周检查一次；有更新会同步到该文档。
+
 ## 使用须知（安装后先看这个）
 
 首次加载技能会自动输出「免责声明 + 两个收集表」；也可手动查看：
@@ -71,6 +84,9 @@ python3 scripts/first_run.py
 | `scripts/syno.py` | FileStation 上传/下载/列目录（多文件、管道、进度、不覆盖开关） |
 | `scripts/pack_skill.py` | 打包（full/delta）+ 凭据扫描，命中凭据 exit 4 |
 | `scripts/cos_upload.py` | COS 上传（ima 回传第二步） |
+| `scripts/check_update.py` | 检查 GitHub 是否有新版本（Release / tag / commit 三级 fallback） |
+| `VERSION` | 本地版本基线 |
+| `.update_state.json` | 更新检查水位（last_version / last_commit） |
 
 ## 版本与同步节奏
 

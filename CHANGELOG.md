@@ -70,6 +70,20 @@
 - 新增 `scripts/first_run.py`：打印「免责声明 + 两个收集表」，纯输出无副作用。
 - SKILL.md 顶部新增「首次加载必弹」区块：每次触发技能先把该段原样输出给用户，再执行任务。
 
+## 2026-09-29 · 更新检查机制（GitHub + 腾讯文档镜像）
+
+- 新增 `scripts/check_update.py`：纯标准库，只访问 `api.github.com` 公开只读接口，
+  按「Release → tag → main HEAD」三级 fallback 判断远端最新版本；
+  支持 `--json`（自动化消费）、`--mark-seen`（写水位）、`--set-version`（改基线）。
+  退出码：`0` 有更新 / `3` 无更新 / `4` 查询失败（打印腾讯文档镜像地址兜底）。
+- 新增 `VERSION`（当前 `1.0.0`）与 `.update_state.json`（last_version / last_commit / last_checked）。
+- SKILL.md 新增「更新检查（每周一次）」章节：记录 GitHub 更新地址
+  （https://github.com/J-5271/synology-nas-cli1）与流程；README 同步加「检查更新」段。
+- 新增腾讯文档《synology-nas-cli 版本更新记录》：https://docs.qq.com/aio/DQ05IdUxxR3ZtUndG
+  （file_id `CNHuLqGvmRwF`），作为**无法访问 GitHub 用户**的版本镜像，
+  记录当前版本、更新地址、更新方式、版本记录表、免责声明与两个收集表。
+- 约定：每周检查一次；有更新则同步该文档 + 追加本文件 + 向用户输出主要更新内容。
+
 ## 2026-09-27 · v2026-09-27
 
 - 新增「细粒度权限：synoshare 做不到」：ACL 删除位 D/DC 拆分、两条规则、

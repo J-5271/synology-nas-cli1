@@ -332,6 +332,41 @@ systemctl status <服务名>
 - 依赖与供应链：CI 里的第三方 Actions 固定到 commit SHA，不用可变标签；
   版本发布产物附 SHA256 校验和。
 
+### 更新检查（每周一次，2026-09-29 定）
+
+| 项 | 值 |
+|---|---|
+| GitHub 仓库（主更新地址） | **https://github.com/J-5271/synology-nas-cli1** |
+| Release 下载页 | https://github.com/J-5271/synology-nas-cli1/releases |
+| 提交历史 | https://github.com/J-5271/synology-nas-cli1/commits/main |
+| 腾讯文档版本记录（**GitHub 不可达时的镜像**） | **https://docs.qq.com/aio/DQ05IdUxxR3ZtUndG** （《synology-nas-cli 版本更新记录》，file_id `CNHuLqGvmRwF`） |
+| 本地版本基线 | `VERSION` 文件（当前 `1.0.0`） |
+| 检查水位 | `.update_state.json`（`last_version` / `last_commit` / `last_checked`） |
+| 检查脚本 | `scripts/check_update.py`（纯标准库，只访问 api.github.com 公开只读接口） |
+
+**为什么要有腾讯文档镜像**：部分用户访问不了 GitHub。腾讯文档那份页面同步记录「当前版本 + 版本记录 + 更新方式」，
+让他们至少能确认自己是不是旧版，并通过收集表索取更新。
+
+```bash
+python scripts/check_update.py            # 人类可读：有无更新 + 主要更新内容
+python scripts/check_update.py --json     # 机器可读，供自动化消费
+python scripts/check_update.py --mark-seen   # 记录当前水位，下次从这里开始比
+python scripts/check_update.py --set-version 1.1.0   # 手动改本地版本基线
+```
+
+退出码：`0` 有更新 / `3` 无更新 / `4` 查询失败（会打印腾讯文档镜像地址兜底）。
+
+**每周检查流程**（automation `b3bbeb4b-1351-4127-ac0f-1532f712feef`，每周日 21:30）
+
+1. 跑 `check_update.py --json`；
+2. `has_update=false` → 只在 `.update_state.json` 记 `last_checked`，不动文档；
+3. `has_update=true` → 三件事：
+   - 更新腾讯文档《版本更新记录》的「当前版本」与「版本记录」表（追加一行）；
+   - 在 `CHANGELOG.md` 追加一条带日期的更新说明；
+   - **向用户输出本次主要更新内容**（版本号、发布说明、新增 commit 列表）；
+4. 处理完跑 `--mark-seen` 前推水位；
+   若本次是发布型更新（有 tag/Release），再 `--set-version <新版本号>` 同步本地基线。
+
 ### 反馈与回传入口（两个收集表）
 
 均为**腾讯文档收集表**（只允许他人填写/提交，不可查看或修改他人记录）。
