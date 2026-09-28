@@ -244,13 +244,15 @@ systemctl status <服务名>
 
 | 项 | 值 |
 |---|---|
-| 仓库 | `https://github.com/J-5271/synology-nas-cli.git`（**公开**） |
+| 仓库 | **本地 git 仓库**（无远端；2026-09-28 已解绑 GitHub remote） |
 | 本地路径 | `~/.workbuddy/skills/synology-nas-cli/` |
 | 默认分支 | `main` |
-| 认证 | Git Credential Manager OAuth（`git credential-manager github login`），token 存 Windows 凭据管理器，不落 `.git/config` 明文 |
+| 历史备份 | `~/.workbuddy/skills/synology-nas-cli-backup-20260928.bundle`（含全部 commit，`git clone <bundle>` 可还原） |
 
 任何改动先 `git commit`，再谈 ima 回传。git 历史即版本记录，回滚用 `git revert` / `git checkout <sha> -- <file>`。
 `.gitignore` 已排除 `build/`（打包产物）与 `*cred*.json`（临时 COS 凭证）。
+
+> 需要远端时再挂：`git remote add origin <url> && git push -u origin main`。
 
 ### 技能包维护与 ima 同步（周增量 + 月全量）
 
