@@ -136,6 +136,9 @@
 - 新增 `scripts/check_ci.py`：本地/ CI 解析 `.github/workflows/*.yml`（依赖 PyYAML，
   未装则跳过），把这类问题挡在提交前；CI verify 增加该步骤；CONTRIBUTING 提交前必做同步。
 
+- **v1.0.0 已发布**：tag `v1.0.0`（commit `b3f88f9`），Release 含
+  `synology-nas-cli-v1.0.0.tar.gz`（57,965 B）与同名 `.sha256`，已下载校验一致。
+
 ## 2026-09-27 · v2026-09-27
 
 - 新增「细粒度权限：synoshare 做不到」：ACL 删除位 D/DC 拆分、两条规则、

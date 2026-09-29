@@ -87,6 +87,7 @@ python3 scripts/first_run.py
 | `scripts/first_run.py` | 打印使用须知（免责声明 + 两个收集表入口） |
 | `scripts/syno.py` | FileStation 上传/下载/列目录（多文件、管道、不覆盖开关、失败不中断汇总） |
 | `scripts/pack_skill.py` | 打包（full/delta）+ 凭据扫描，命中凭据 exit 4 |
+| `scripts/check_ci.py` | 校验 `.github/workflows/*.yml` 可解析（需 PyYAML，未装则跳过） |
 | `scripts/cos_upload.py` | COS 上传（ima 回传第二步） |
 | `scripts/check_update.py` | 检查 GitHub 是否有新版本（Release / tag / commit 三级 fallback） |
 | `VERSION` | 本地版本基线 |
