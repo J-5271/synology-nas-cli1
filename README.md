@@ -38,6 +38,8 @@ sha256sum -c synology-nas-cli-vX.Y.Z.sha256
   ```
   或 GitHub Actions → `CI` → **Run workflow** → 填 `vX.Y.Z`（手动审批）。
 - 两种都会自动打包 tar.gz + SHA256 并发布到 Release。
+- 本机装了 `gh` CLI 时（需先 `gh auth login`）也可手动查发布：
+  `gh release view v1.0.0 -R J-5271/synology-nas-cli1`
 
 ## 检查更新
 

@@ -20,6 +20,15 @@
 | `scripts/*.py` | < 20 KB/个 | 执行器、打包器、上传器 |
 | `references/*.md` | < 10 KB/个 | 命令 / API / 错误码 / 排障 |
 
+## 二·五、可选本机工具（不入库）
+
+| 工具 | 用途 | 安装 |
+|---|---|---|
+| GitHub CLI (`gh`) | 命令行查/发 Release、看 workflow 运行状态 | `winget install --id GitHub.cli -e --scope user`，然后 `gh auth login` |
+
+> 不是必需项：不装也能用「推标签触发 CI」发布（见 README「版本发布」）。
+> 装了之后需先 `gh auth login`（浏览器授权），否则只能匿名读公开仓库（有速率限制）。
+
 ## 三、外部文件（≥ 1 MB，只记地址，不入库）
 
 | 名称 | 来源 | 获取方式 |
