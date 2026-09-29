@@ -126,6 +126,16 @@
 - 打标签 `v1.0.0` 并推送 → CI 自动打包 tar.gz + SHA256 发布到 Release。
 - SKILL.md「分发与版本策略」与 README「版本发布」同步更新为两种发布方式。
 
+## 2026-09-29 · v1.0.0 发布实修（两个 CI 坑）
+
+- 坑① `tar czf out.tar.gz .` 在工作区内打包自身 → tar exit 1，首次标签发布失败。
+  改为产物写 `$RUNNER_TEMP`，`tar czf ... -C "$GITHUB_WORKSPACE" .`。
+- 坑② `--notes` 里写了空行 → workflow YAML 解析失败，GitHub 只给一个
+  **conclusion=failure 且 jobs 数为 0** 的 run（看上去像 CI 挂了，实际文件没被解析）。
+  已改为单行 notes。
+- 新增 `scripts/check_ci.py`：本地/ CI 解析 `.github/workflows/*.yml`（依赖 PyYAML，
+  未装则跳过），把这类问题挡在提交前；CI verify 增加该步骤；CONTRIBUTING 提交前必做同步。
+
 ## 2026-09-27 · v2026-09-27
 
 - 新增「细粒度权限：synoshare 做不到」：ACL 删除位 D/DC 拆分、两条规则、

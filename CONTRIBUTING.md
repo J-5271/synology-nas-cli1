@@ -27,6 +27,7 @@
 
 ```bash
 python -m py_compile scripts/*.py                    # 语法检查
+python scripts/check_ci.py                           # workflow YAML 校验（需 pip install pyyaml）
 python scripts/nas_exec.py --dry-run "cat /etc/VERSION"      # 只打印命令，exit 0
 # 守卫只在「非 dry-run」时生效：不加 --yes 必须返回 2，且不连设备
 python scripts/nas_exec.py "/usr/syno/sbin/synouser --setpw <账号> <密码>"            # exit 2

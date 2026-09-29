@@ -32,6 +32,12 @@ jobs:
       - name: 语法检查
         run: python -m py_compile scripts/*.py
 
+      # workflow 写坏时 GitHub 只给一个 0 作业的失败 run，本地先解析一遍挡住
+      - name: workflow YAML 校验
+        run: |
+          pip install --quiet pyyaml
+          python scripts/check_ci.py
+
       - name: 守卫-只读命令应放行
         run: |
           python scripts/nas_exec.py --dry-run "cat /etc/VERSION; df -h"
@@ -99,7 +105,4 @@ jobs:
             "$ARTIFACT_DIR/synology-nas-cli-$VERSION.tar.gz" \
             "$ARTIFACT_DIR/synology-nas-cli-$VERSION.sha256" \
             --title "$VERSION" \
-            --notes "自动构建产物（tar.gz + SHA256）。
-
-安装：下载 tar.gz 后解压到 ~/.workbuddy/skills/synology-nas-cli/
-校验：sha256sum -c synology-nas-cli-$VERSION.sha256"
+            --notes "自动构建产物（tar.gz + SHA256）。安装：下载 tar.gz 后解压到 ~/.workbuddy/skills/synology-nas-cli/ ；校验：sha256sum -c synology-nas-cli-$VERSION.sha256"
