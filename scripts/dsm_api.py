@@ -40,7 +40,15 @@ import http.cookiejar
 
 AUTH_API = "SYNO.API.Auth"
 AUTH_VERSIONS = (7, 6, 3, 2)
-SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def _skill_root():
+    # 优先用环境变量覆盖（别的 agent 把脚本复制到临时目录运行、__file__ 兜底指错时可重定向）
+    env = os.environ.get("SYNO_SKILL_ROOT")
+    if env:
+        return os.path.abspath(os.path.expanduser(env))
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+SKILL_ROOT = _skill_root()
 
 # 登录失败的常见错误码 → 给用户的下一步建议（见 references/dsm-web-api.md 第三节）
 LOGIN_HINTS = {

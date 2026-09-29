@@ -57,9 +57,9 @@ python scripts/pack_skill.py --mode full --no-state  # 凭据扫描，命中 exi
 技能包要在本机生效，需 clone 到：
 
 ```
-~/.workbuddy/skills/synology-nas-cli/
+技能包所在目录（目录名随意）
 ```
 
-（Windows 即 `C:/Users/<你>/.workbuddy/skills/synology-nas-cli/`）
+（Windows 同理，目录名随意，可放在任意位置）
 
 首次认证：`git credential-manager github login`

@@ -105,4 +105,4 @@ jobs:
             "$ARTIFACT_DIR/synology-nas-cli-$VERSION.tar.gz" \
             "$ARTIFACT_DIR/synology-nas-cli-$VERSION.sha256" \
             --title "$VERSION" \
-            --notes "自动构建产物（tar.gz + SHA256）。安装：下载 tar.gz 后解压到 ~/.workbuddy/skills/synology-nas-cli/ ；校验：sha256sum -c synology-nas-cli-$VERSION.sha256"
+            --notes "自动构建产物（tar.gz + SHA256）。安装：下载 tar.gz 后解压到任意目录（如 ~/.workbuddy/skills/synology-nas-cli/）即可，脚本靠 __file__ 自定位，不依赖固定路径；校验：sha256sum -c synology-nas-cli-$VERSION.sha256"

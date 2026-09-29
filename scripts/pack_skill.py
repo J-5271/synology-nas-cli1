@@ -29,7 +29,15 @@ import os
 import re
 import sys
 
-SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def _skill_root():
+    # 优先用环境变量覆盖（别的 agent 把脚本复制到临时目录运行、__file__ 兜底指错时可重定向）
+    env = os.environ.get("SYNO_SKILL_ROOT")
+    if env:
+        return os.path.abspath(os.path.expanduser(env))
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+SKILL_ROOT = _skill_root()
 BUILD_DIR = os.path.join(SKILL_ROOT, "build")
 STATE_FILE = os.path.join(BUILD_DIR, ".sync_state.json")
 
@@ -173,7 +181,7 @@ def build_body(files, mode):
         toc.append(f"- {anchor}")
         section = f"\n## {len(toc)}. {title}\n\n"
         if lang:
-            section += f"路径：~/.workbuddy/skills/synology-nas-cli/{rel}\n\n"
+            section += f"路径：{SKILL_ROOT}/{rel}\n\n"
             section += f"```{lang}\n{body.rstrip()}\n```\n"
         else:
             section += body.rstrip() + "\n"
@@ -236,7 +244,7 @@ def main():
 
     out = f"""# {head_title}
 
-版本：{version}（生成时间 {stamp}）｜来源：~/.workbuddy/skills/synology-nas-cli/
+版本：{version}（生成时间 {stamp}）｜来源：{SKILL_ROOT}/
 {head_note}
 > 脱敏：本包已通过凭据扫描，不含任何真实账号/密码/密钥；示例一律用占位符。
 

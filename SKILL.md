@@ -309,7 +309,7 @@ systemctl status <服务名>
 
 | 项 | 值 |
 |---|---|
-| 本地仓库 | `~/.workbuddy/skills/synology-nas-cli/`（唯一真实来源，所有改动先 commit 到这里） |
+| 本地仓库 | 技能包所在目录（用户级/项目级 `.workbuddy/skills/` 或任意目录，目录名随意）（唯一真实来源，所有改动先 commit 到这里） |
 | 公开分发仓库 | **https://github.com/J-5271/synology-nas-cli1** （公开；只读镜像，用于他人 clone / 下载 Release） |
 | 默认分支 | `main` |
 | 历史备份 | `~/.workbuddy/skills/synology-nas-cli-backup-20260928.bundle`（含全部 commit，`git clone <bundle>` 可还原） |

@@ -42,7 +42,15 @@ MIRROR_URL = os.environ.get(
     "https://docs.qq.com/aio/DQ05IdUxxR3ZtUndG",  # 腾讯文档《synology-nas-cli 版本更新记录》
 )
 
-SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def _skill_root():
+    # 优先用环境变量覆盖（别的 agent 把脚本复制到临时目录运行、__file__ 兜底指错时可重定向）
+    env = os.environ.get("SYNO_SKILL_ROOT")
+    if env:
+        return os.path.abspath(os.path.expanduser(env))
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+SKILL_ROOT = _skill_root()
 VERSION_FILE = os.path.join(SKILL_ROOT, "VERSION")
 STATE_FILE = os.path.join(SKILL_ROOT, ".update_state.json")
 

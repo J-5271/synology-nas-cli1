@@ -156,6 +156,19 @@
 - 打标签 `v1.0.1` 并推送 → CI 自动打包 tar.gz + SHA256 发布到 Release。
 - 腾讯文档《版本更新记录》同步当前版本为 v1.0.1，版本记录表追加一行。
 
+## 2026-09-29 · 路径无关 + 与其它 agent 兼容优化
+
+- 7 个脚本（check_ci / check_update / dsm_api / first_run / nas_exec / pack_skill / syno）
+  的 `SKILL_ROOT` 解析增加 `SYNO_SKILL_ROOT` 环境变量覆盖，`__file__` 两层父目录兜底；
+  技能包放在任意目录、被其它 agent 以绝对路径直接调用脚本均可用，不依赖固定安装路径。
+- `pack_skill.py` 生成内容里去掉写死的 `~/.workbuddy/skills/synology-nas-cli/`，改用 `SKILL_ROOT` 变量。
+- README / SKILL.md / CONTRIBUTING 删除"必须放在固定目录"的强制说法，改为
+  "目录名随意 / 任意位置"；README 新增「被其它 agent 调用」说明
+ （`__file__` 自定位、临时目录运行时设 `SYNO_SKILL_ROOT` 重定向、凭据走环境变量不落盘）。
+- ci.yml release `--notes` 安装建议改为"解压到任意目录"。
+- 未改动 CI 结构与脱敏扫描；`py_compile` / `pack_skill --no-state`（脱敏 exit 0）/
+  `nas_exec --dry-run` 均通过验收。
+
 ## 2026-09-27 · v2026-09-27
 
 - 新增「细粒度权限：synoshare 做不到」：ACL 删除位 D/DC 拆分、两条规则、

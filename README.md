@@ -50,12 +50,12 @@ GitHub 公开仓库 <https://github.com/J-5271/synology-nas-cli1> 是**只读分
 ## 安装
 
 ```bash
-# 方式一：直接 clone（跟随最新提交）
-git clone https://github.com/J-5271/synology-nas-cli1.git ~/.workbuddy/skills/synology-nas-cli
+# 方式一：直接 clone（跟随最新提交）。目标目录随意，可放在任意位置（目录名任意）
+git clone https://github.com/J-5271/synology-nas-cli1.git <任意目录>/synology-nas-cli
 
 # 方式二：用 Release 里的稳定版（推荐）
 # 下载 synology-nas-cli-vX.Y.Z.tar.gz + 同名 .sha256，校验后解压到
-# ~/.workbuddy/skills/synology-nas-cli/
+# <你放置技能包的目录>/synology-nas-cli/（目录名随意）
 sha256sum -c synology-nas-cli-vX.Y.Z.sha256
 ```
 
@@ -68,7 +68,13 @@ pip install paramiko        # 仅 SSH「密码登录」需要；用 SSH key 或�
 python3 scripts/first_run.py   # 先看使用须知（免责声明 + 两个收集表 + 更新入口）
 ```
 
-技能包要放在 `~/.workbuddy/skills/synology-nas-cli/`（Windows：`C:/Users/<你>/.workbuddy/skills/synology-nas-cli/`）才被识别。
+技能包可放在用户级 `~/.workbuddy/skills/`、项目级 `<项目>/.workbuddy/skills/`，或任意目录；WorkBuddy 会自动识别前两者，放在别处时其它 agent 可用绝对路径直接调用脚本，脚本通过 `__file__` 自动定位自身，无需固定路径。
+
+> **被其它 agent / 外部程序调用**：脚本靠 `__file__` 自定位根目录，不依赖 CWD 与固定安装路径。
+> - 其它 agent 可用绝对路径直接调用 `scripts/*.py`（如 `python /opt/skills/synology-nas-cli/scripts/nas_exec.py --health`）。
+> - 若脚本被复制到临时目录运行、无法靠 `__file__` 定位真实根目录，可设环境变量
+>   `SYNO_SKILL_ROOT=/真实技能包目录` 重定向（用于读取 `VERSION` / `.update_state.json` / `references` 等）。
+> - 凭据仍走环境变量（`SYNO_HOST` 等），不落盘。
 
 ### 1. 通路 A：SSH（能力最全）
 
