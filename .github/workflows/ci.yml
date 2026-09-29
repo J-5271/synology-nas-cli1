@@ -66,25 +66,40 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: 解析版本号
+        id: ver
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
           else
-            VERSION="${GITHUB_REF_NAME}"
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          tar czf "synology-nas-cli-$VERSION.tar.gz" \
+
+      - name: 打包并生成校验和
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          # 产物必须写到工作区外：tar czf out.tar.gz . 会把正在生成的归档自己
+          # 也打包进去，tar 以 exit 1 结束（首次标签发布就栽在这里）
+          ARTIFACT_DIR="$RUNNER_TEMP/nascli"
+          mkdir -p "$ARTIFACT_DIR"
+          tar czf "$ARTIFACT_DIR/synology-nas-cli-$VERSION.tar.gz" \
+            -C "$GITHUB_WORKSPACE" \
             --exclude='.git*' --exclude='build' --exclude='__pycache__' \
             --exclude='.update_state.json' .
-          sha256sum "synology-nas-cli-$VERSION.tar.gz" > "synology-nas-cli-$VERSION.sha256"
-          cat "synology-nas-cli-$VERSION.sha256"
+          (cd "$ARTIFACT_DIR" && sha256sum "synology-nas-cli-$VERSION.tar.gz" \
+            > "synology-nas-cli-$VERSION.sha256")
+          cat "$ARTIFACT_DIR/synology-nas-cli-$VERSION.sha256"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "ARTIFACT_DIR=$ARTIFACT_DIR" >> "$GITHUB_ENV"
 
       - name: 发布 Release（含校验和）
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "$VERSION" \
-            "synology-nas-cli-$VERSION.tar.gz" \
-            "synology-nas-cli-$VERSION.sha256" \
+            "$ARTIFACT_DIR/synology-nas-cli-$VERSION.tar.gz" \
+            "$ARTIFACT_DIR/synology-nas-cli-$VERSION.sha256" \
             --title "$VERSION" \
-            --notes "自动构建产物。安装：下载 tar.gz 后解压到 ~/.workbuddy/skills/synology-nas-cli/"
+            --notes "自动构建产物（tar.gz + SHA256）。
+
+安装：下载 tar.gz 后解压到 ~/.workbuddy/skills/synology-nas-cli/
+校验：sha256sum -c synology-nas-cli-$VERSION.sha256"
