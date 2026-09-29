@@ -117,6 +117,15 @@
 - **修复** CI：Release 打包排除个人水位文件 `.update_state.json`。
 - **新增** README「脚本退出码约定」表（0/1/2/3/4 含义统一成文）。
 
+## 2026-09-29 · v1.0.0 首个 Release（标签触发发布）
+
+- `.github/workflows/ci.yml` 发布触发增加**标签方式**：`push.tags: ["v*"]`，
+  release job 条件改为 `workflow_dispatch || startsWith(github.ref,'refs/tags/v')`；
+  新增「解析版本号」步骤：手动触发取 inputs.version，标签触发取 `GITHUB_REF_NAME`。
+  原「手动审批发布」路径保留，两条都可走。
+- 打标签 `v1.0.0` 并推送 → CI 自动打包 tar.gz + SHA256 发布到 Release。
+- SKILL.md「分发与版本策略」与 README「版本发布」同步更新为两种发布方式。
+
 ## 2026-09-27 · v2026-09-27
 
 - 新增「细粒度权限：synoshare 做不到」：ACL 删除位 D/DC 拆分、两条规则、

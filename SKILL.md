@@ -319,9 +319,10 @@ systemctl status <服务名>
 - **分发**：GitHub 公开仓库为主渠道。使用者 `git clone <repo>`，或下载 Release 里打好的
   `.tar.gz`（tag 对应稳定版）。不要让人追 `main` HEAD。
 - **版本**：语义化版本 `vX.Y.Z`，打 tag 即代表一个可安装的版本；预发布用 `-rc.N`。
-- **发布节奏**：日常改动照常 commit；**主要版本由维护者手动审批发布**
-  —— `ci.yml` 的发布 job 走 `workflow_dispatch`，人点"Run workflow"并填版本号才上传 Release 产物。
-  这样自动化负责构建，发布时机仍掌握在人手里。
+- **发布节奏**：日常改动照常 commit；**发布时机由人掌握**，两种触发方式：
+  - 推标签 `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z` → 自动打包发布（版本号取标签名）
+  - 或 Actions → `CI` → **Run workflow** → 填 `vX.Y.Z`（手动审批发布）
+  两条都会跑：tar.gz + SHA256 → Release。自动构建 + 人工决定何时发。
 - **推送远端**：`git remote add origin https://github.com/J-5271/synology-nas-cli1.git`
   （或已挂过时）`git push -u origin main` 与 `git push --tags`。
 

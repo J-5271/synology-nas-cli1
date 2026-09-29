@@ -32,8 +32,12 @@ sha256sum -c synology-nas-cli-vX.Y.Z.sha256
 ## 版本发布
 
 - 日常改动照常 commit 到本地仓库。
-- 主要版本由维护者手动审批发布：GitHub Actions → `CI` → **Run workflow** → 填 `vX.Y.Z`。
-  自动打包 tar.gz + SHA256，发布到 Release。
+- 发布时机由维护者掌握，二选一：
+  ```bash
+  git tag -a vX.Y.Z -m "发布说明" && git push origin vX.Y.Z   # 推标签即自动发布
+  ```
+  或 GitHub Actions → `CI` → **Run workflow** → 填 `vX.Y.Z`（手动审批）。
+- 两种都会自动打包 tar.gz + SHA256 并发布到 Release。
 
 ## 检查更新
 
