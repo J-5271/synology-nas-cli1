@@ -149,8 +149,11 @@ findhostd 一次命中；反过来一台没装 DSM 的裸机只回应 SSDP、fin
 
 #### 浏览器自动化通路（GUI 才能干的事）
 
-装 DSM、装套件、建共享文件夹这几件事 Web API 实测走不通
-（`Package.Installation.install` 返回 103、`Share.create` 返回 403），只能开浏览器点。
+**装 DSM** 仍只能浏览器点。**建共享文件夹** 在部分机型 Web API 返回 403（`Share.create`），
+此时再走浏览器。**装套件** 已找到 Web API 离线路线，不必开浏览器——
+NAS 在线装因连不上 Synology CDN 会失败（error 400），改用本地 `.spk` → FileStation 上传 →
+`SYNO.Core.Package.Installation` 安装即可，脚本 `scripts/install_packages.py` 已封装
+（详见 references/package-install.md）。
 
 核心姿势是在**已登录页面上下文里**执行 `SYNO.API.Request`（不用自己管 sid / token）：
 
@@ -198,6 +201,30 @@ python3 scripts/syno.py a.mp4 --no-overwrite --remote /x/y   # 不覆盖已存�
 只做文件传输（SYNO.FileStation.Upload / Download / List），不含任何改配置、删文件能力。
 实测坑：`SYNO.FileStation.List` 的 `folder_path=/` 根路径会返回 401，要用具体共享文件夹路径
 （如 `/volume1` 或 `/home`）；`_sid` 走 URL 查询参数或 POST body 均可，但 List 用 GET 更稳。
+
+#### 套件离线安装 + 日志归档（Web API 路线，写操作）
+
+`scripts/install_packages.py`（纯标准库，复用 `dsm_api.py` 的 DSM 传输层）。
+把「装套件 / 建共享文件夹 / 建子目录 / 配日志归档」这套 Web API 调用封装好了，
+并踩平了三个坑：本地 NAS 必须绕过本机代理（自动加 `NO_PROXY`）、FileStation 用共享根路径
+（不是 `/volume1/...`）、日志归档 `set` 的布尔字段必须传 `true/false` 且用 POST。
+
+```bash
+export DSM_HOST="http://<nas>:<端口>" DSM_ACCOUNT=<账号> DSM_PASSWORD='<密码>'
+
+python3 scripts/install_packages.py status            # 只读复核：共享文件夹/套件/归档设置
+python3 scripts/install_packages.py setup \
+  --name nas管理 --subs log 分析报告 \
+  --files /tmp/LogCenter.spk /tmp/StorageAnalyzer.spk \
+  --clean --yes                                       # 一条龙：建共享→子目录→安装→归档→删安装包
+```
+
+- 所有写操作**必须 `--yes` 才执行**（只读优先红线）。
+- `.spk` 需先在能上网的机器下载好再传；NAS 在线装会因连不上 CDN 失败（error 400）。
+- 套件安装是异步的，`setup` 返回后稍用 `status` 确认 `status=running`。
+- **局限**：存储空间分析器的「每周报表」没有 Web API（全量 API 注册表里无 StorageAnalyzer 条目），
+  只能进套件 UI 手动建计划；共享文件夹建在部分机型仍可能 403，回退浏览器路线。
+- 完整坑位与字段契约见 `references/package-install.md`。
 
 #### SSH 通路
 
@@ -440,7 +467,7 @@ systemctl status <服务名>
 | Release 下载页 | https://github.com/J-5271/synology-nas-cli1/releases |
 | 提交历史 | https://github.com/J-5271/synology-nas-cli1/commits/main |
 | 腾讯文档版本记录（**GitHub 不可达时的镜像**） | **https://docs.qq.com/aio/DQ05IdUxxR3ZtUndG** （《synology-nas-cli 版本更新记录》，file_id `CNHuLqGvmRwF`） |
-| 本地版本基线 | `VERSION` 文件（当前 `1.0.0`） |
+| 本地版本基线 | `VERSION` 文件（当前 `1.0.2`） |
 | 检查水位 | `.update_state.json`（`last_version` / `last_commit` / `last_checked`） |
 | 检查脚本 | `scripts/check_update.py`（纯标准库，只访问 api.github.com 公开只读接口） |
 

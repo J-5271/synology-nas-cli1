@@ -5,6 +5,24 @@
 > 每月做一次整合，重新打整包并 REPLACE 覆盖《Synology NAS 管理技能包.md》。
 > 所有内容脱敏，不记录任何真实账号/密码/密钥。
 
+## 2026-09-30 · 套件离线安装封装（install_packages.py）
+
+- **新增 `scripts/install_packages.py`**：纯标准库，复用 `dsm_api.py` 的 DSM 传输层，
+  把「套件离线安装 + 建共享文件夹 + 建子目录 + 配置日志归档」封装成可复用脚本。
+  子命令：`status`（只读）/ `install` / `create-share` / `create-folder` /
+  `set-log-archive` / `setup`（一条龙）。变更操作必须 `--yes` 才执行（只读优先红线）。
+- **踩平三个实测坑并写进 `references/package-install.md`**：
+  ① 本地 NAS 上传必须绕过本机代理（脚本自动把 `DSM_HOST` 加进 `NO_PROXY`，否则 `ProxyError 10054`）；
+  ② FileStation 用「共享根路径」（`/nas管理`）而非磁盘路径（`/volume1/nas管理`），
+     但安装套件时的 `path` 必须用磁盘绝对路径；
+  ③ 日志归档 `SYNO.LogCenter.Setting.Storage set` 的布尔字段必须传 `true/false`（传 `1/0` 报 120）、且必须用 POST。
+- **修正能力边界**：装套件已不必走浏览器——NAS 在线装因连不上 Synology CDN 报 `error 400`，
+  改用本地 `.spk` 上传 + `SYNO.Core.Package.Installation`（复合 check+install，磁盘路径）即可；
+  SKILL.md 浏览器自动化段落相应更新。建共享文件夹在部分机型仍可能 403，保留浏览器回退。
+- **明确局限**：存储空间分析器（StorageAnalyzer）「每周报表」无 Web API（全量 API 注册表无
+  StorageAnalyzer 条目），只能进套件 UI 手动建计划，文档已写清手动步骤。
+- `VERSION` → `1.0.2`。
+
 ## 2026-09-30 · v2026-09-30
 
 - **新增通路：局域网发现**（`references/lan-discovery.md`）
