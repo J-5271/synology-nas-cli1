@@ -164,6 +164,8 @@ agent-browser close                              # 收尾必做：会话等同�
 | 我想… | 用什么 |
 |---|---|
 | 还不知道 NAS 的 IP / 端口 | `syno_findhost.py` + `discover_nas.py`（两条都跑） |
+| 新机开荒，不知道按什么顺序配 | `references/dsm-deployment-guide.md`（11 步 checklist） |
+| 该选 RAID 5 还是 6、Btrfs 还是 Ext4 | 同上（选型表 + 安全加固清单） |
 | 看这台 NAS 型号 / DSM 版本 / 磁盘 | `nas_exec.py --health` 或 `dsm_api.py info` |
 | 给裸机装 DSM / 装套件 / 建共享文件夹 | 浏览器通路（Web API 走不通，见上方） |
 | 不改任何东西，先看命令长什么样 | `nas_exec.py --dry-run "<命令>"` |
@@ -236,6 +238,7 @@ python3 scripts/first_run.py
 | `CONTRIBUTING.md` | 协作规范：分支 + PR、提交前校验、内容红线 |
 | `references/cli-commands.md` | DSM CLI 命令（synouser / synoshare / synogroup …） |
 | `references/dsm-web-api.md` | DSM Web API 登录与调用 |
+| `references/dsm-deployment-guide.md` | 新机开荒：官方部署指南要点（RAID/文件系统选型、安全加固清单、DSM 6.2→7 对照） |
 | `references/lan-discovery.md` | 局域网发现：findhostd 协议 + mDNS/SSDP，两个发现脚本 |
 | `references/browser-automation.md` | 浏览器通路：装 DSM、装套件、建 btrfs 卷、快照计划 API 契约 |
 | `references/error-codes.md` | 错误码与排查套路 |

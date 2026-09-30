@@ -45,8 +45,11 @@ STATE_FILE = os.path.join(BUILD_DIR, ".sync_state.json")
 DOC_ORDER = [
     ("SKILL.md", "技能主文档 {}", None),
     ("README.md", "安装与使用说明 {}", None),
+    ("references/dsm-deployment-guide.md", "新机开荒部署要点（官方指南提炼）", None),
     ("references/dsm-web-api.md", "DSM Web API 通路", None),
     ("references/cli-commands.md", "官方 CLI 命令参考", None),
+    ("references/lan-discovery.md", "局域网发现（findhostd / mDNS / SSDP）", None),
+    ("references/browser-automation.md", "浏览器自动化通路", None),
     ("references/error-codes.md", "错误码对照表", None),
     ("references/ssh-and-troubleshooting.md", "SSH 登录与故障排查", None),
     ("CHANGELOG.md", "版本记录 {}", None),
@@ -55,11 +58,39 @@ DOC_ORDER = [
     ("scripts/dsm_api.py", "脚本：{}", "python"),
     ("scripts/nas_exec.py", "脚本：{}", "python"),
     ("scripts/syno.py", "脚本：{}", "python"),
+    ("scripts/syno_findhost.py", "脚本：{}", "python"),
+    ("scripts/discover_nas.py", "脚本：{}", "python"),
     ("scripts/check_update.py", "脚本：{}", "python"),
     ("scripts/first_run.py", "脚本：{}", "python"),
     ("scripts/pack_skill.py", "脚本：{}", "python"),
     ("scripts/cos_upload.py", "脚本：{}", "python"),
 ]
+
+
+def _autodiscover():
+    """DOC_ORDER 之外的新文件自动补进包。
+
+    踩过的坑（2026-09-30）：新增了 references/ 与 scripts/ 下 4 个文件却忘了同步
+    DOC_ORDER，结果 `--mode full` 打出来还是 16 个文件，新内容根本没进回传包。
+    这里按目录补齐，保证「目录里有文件就一定进包」，不再依赖人工记得改清单。
+    """
+    known = {rel for rel, _, _ in DOC_ORDER}
+    extra = []
+    for sub, ext, lang, prefix in (("references", ".md", None, "参考："),
+                                   ("scripts", ".py", "python", "脚本：")):
+        d = os.path.join(SKILL_ROOT, sub)
+        if not os.path.isdir(d):
+            continue
+        for name in sorted(os.listdir(d)):
+            if not name.endswith(ext):
+                continue
+            rel = "%s/%s" % (sub, name)
+            if rel not in known:
+                extra.append((rel, prefix + name, lang))
+    return DOC_ORDER + extra
+
+
+DOC_FILES = _autodiscover()
 
 FULL_NAME = "Synology NAS 管理技能包.md"
 
@@ -130,7 +161,7 @@ def changed_files(since):
     """mtime >= since 的技能文件（按 DOC_ORDER 顺序）。"""
     ts = datetime.datetime.strptime(since, "%Y-%m-%d").timestamp()
     out = []
-    for rel, _, _ in DOC_ORDER:
+    for rel, _, _ in DOC_FILES:
         p = os.path.join(SKILL_ROOT, rel)
         if os.path.exists(p) and os.path.getmtime(p) >= ts:
             out.append(rel)
@@ -166,7 +197,7 @@ def write_state(patch):
 def build_body(files, mode):
     parts, toc = [], []
     nfiles, nlines = 0, 0
-    for rel, title_tpl, lang in DOC_ORDER:
+    for rel, title_tpl, lang in DOC_FILES:
         if rel not in files:
             continue
         body = read(rel)
@@ -223,7 +254,7 @@ def main():
         head_note = (f"仅含 {since} 之后变更的内容（{len(files)} 个文件）。\n"
                      f"整包见同库条目《{FULL_NAME}》，每月整合一次。")
     else:
-        files = [rel for rel, _, _ in DOC_ORDER]
+        files = [rel for rel, _, _ in DOC_FILES]
         out_path = args.output or os.path.join(BUILD_DIR, FULL_NAME)
         head_title = "Synology NAS 管理技能包（synology-nas-cli）"
         head_note = ("本包提供两套并行的 NAS 管理通路：① DSM Web API（无需 SSH 开放，优先）"
