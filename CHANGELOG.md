@@ -5,6 +5,30 @@
 > 每月做一次整合，重新打整包并 REPLACE 覆盖《Synology NAS 管理技能包.md》。
 > 所有内容脱敏，不记录任何真实账号/密码/密钥。
 
+## 2026-09-30 · v2026-09-30
+
+- **新增通路：局域网发现**（`references/lan-discovery.md`）
+  - `scripts/syno_findhost.py`：Synology Assistant 同款 findhostd 协议客户端（只读）。
+    能拿型号 / 序列号 / DSM build / 架构 / MAC / **自定义 HTTP 与 HTTPS 端口**。
+    记录完整协议规格（MAGIC + TLV、端口 9997-9999、字段表）与头号坑：
+    **套接字必须 bind 在 UDP 9999**，绑临时端口 100% 收不到回应。
+  - `scripts/discover_nas.py`：mDNS + SSDP + HTTP 指纹三通道发现，
+    **TCP 端口探测默认关闭**（`--portscan` 才开），符合「不主动做端口扫描」红线。
+  - 实测结论：两条互补，单用都会漏设备（自定义端口 888/889 的机器端口扫描全漏、
+    findhostd 一次命中；没装 DSM 的裸机只回应 SSDP、findhostd 不理）。
+- **新增通路：浏览器自动化**（`references/browser-automation.md`）
+  - Web API 干不了的四件事：装 DSM（Web Assistant）、装套件
+    （`Package.Installation.install` 实测返回 103）、建共享文件夹（`Share.create` 返回 403）、
+    绕过磁盘兼容性检查（`Volume.create` 加 `force:true`）。
+  - 核心姿势：在已登录页面上下文里 `eval` 调 `SYNO.API.Request`，不用自己管 sid / token。
+    **头号坑：`callback` 第一个参数是布尔 success，数据在第二参。**
+  - 记录 DSM 7.4 上建 btrfs 卷 + 快照计划的真实 API 契约：
+    `Share.Snapshot set_schedule`（date_type/repeat_hour/hour/week_name）与
+    `DisasterRecovery.Retention set`（`policyType` 位掩码常量表：`RTT_DEL_OLD=20` /
+    `RTT_BY_DAY=64` / `RTT_BY_ADVANCE=128` 等），并区分「保留 N 天」与「保留 N 份」。
+  - 安全：浏览器会话等同完整凭据，收尾必须 `agent-browser close`；sid / token 禁止落盘。
+- README / SKILL.md：通路表由三条扩到五条，新增对应快速上手与排错条目。
+
 ## 2026-09-28 · v2026-09-28
 
 - 新增「脱敏规范（强制）」：包内禁止出现真实账号、密码、密钥；示例一律占位符。

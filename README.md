@@ -19,13 +19,15 @@
 Synology / 群晖 NAS 管理技能包。唯一真实来源是**本地 git 仓库**；
 GitHub 公开仓库 <https://github.com/J-5271/synology-nas-cli1> 是**只读分发镜像**。
 
-### 三条通路，按场景选
+### 五条通路，按场景选
 
 | 通路 | 脚本 | 前提 | 能干什么 | 典型场景 |
 |---|---|---|---|---|
+| **局域网发现** | `syno_findhost.py` / `discover_nas.py` | 与 NAS 同广播域 | 不知道 IP / 端口时先把设备找出来，能拿型号、DSM 版本、自定义端口 | 接手陌生网络、端口被改过 |
 | **SSH + root** | `nas_exec.py` | DSM 开启 SSH，账号在 administrators 组 | 跑任意 DSM 命令、读 `/etc/VERSION`、用官方 CLI（synouser / synoshare / synonet…） | 巡检、批量改用户与共享、装 Docker |
 | **DSM Web API** | `dsm_api.py` | **不用开 SSH**，能访问 DSM 网页即可 | 查系统信息、共享文件夹、用户、SSH 开关状态、探查 1600+ 注册 API | 客户环境不让开 SSH、只要读状态 |
 | **FileStation 传输** | `syno.py` | 同上（Web API 通道） | 上传 / 下载 / 列目录，支持多文件与管道 | 传脚本、取日志、导备份 |
+| **浏览器自动化** | `agent-browser`（外部工具） | 能访问 DSM 网页 | GUI 才能干的事：装 DSM、装套件、建共享文件夹、绕过磁盘兼容检查 | 新机开荒、套件装不上 |
 
 ### 设计取舍（为什么值得用）
 
@@ -127,11 +129,43 @@ python3 scripts/syno.py a.mp4 --no-overwrite --remote /x/y    # 不覆盖已存�
 
 > 坑：`--list /` 根路径会返回 401，要用具体共享文件夹路径（`/volume1`、`/home`）。
 
-### 4. 场景速查
+### 4. 通路 D：局域网发现（先找设备）
+
+```bash
+python3 scripts/syno_findhost.py                 # findhostd：型号 / 序列号 / DSM build / 自定义端口
+python3 scripts/syno_findhost.py --json          # JSON 输出
+python3 scripts/discover_nas.py                  # mDNS + SSDP + HTTP 指纹（默认不扫端口）
+python3 scripts/discover_nas.py --portscan       # 额外做 TCP 端口探测（主动扫描，需明确要求）
+```
+
+两条互补，实测单用都会漏设备，建议都跑。
+findhostd 必须 bind UDP 9999 才有回应（脚本已处理；本机开着的 Synology Assistant 会占住该端口，先退出）。
+详见 `references/lan-discovery.md`。
+
+### 5. 通路 E：浏览器自动化（GUI 才能干的事）
+
+```bash
+npm install -g agent-browser && agent-browser install
+agent-browser open http://<NAS_IP>:5000
+# 登录后在页面上下文里直接调 DSM API，不用自己管 sid / token
+agent-browser eval "new Promise(function(res){
+  SYNO.API.Request({api:'SYNO.Core.System', method:'info', version:1,
+    callback:function(s, r){ res(JSON.stringify(r && r.model)) }});
+})"
+agent-browser close                              # 收尾必做：会话等同完整凭据
+```
+
+⚠️ `callback` 第一个参数是布尔 `success`，**数据在第二参**。
+装 DSM / 装套件 / 建共享文件夹 / 建 btrfs 卷 + 快照计划的完整实测见
+`references/browser-automation.md`。
+
+### 6. 场景速查
 
 | 我想… | 用什么 |
 |---|---|
+| 还不知道 NAS 的 IP / 端口 | `syno_findhost.py` + `discover_nas.py`（两条都跑） |
 | 看这台 NAS 型号 / DSM 版本 / 磁盘 | `nas_exec.py --health` 或 `dsm_api.py info` |
+| 给裸机装 DSM / 装套件 / 建共享文件夹 | 浏览器通路（Web API 走不通，见上方） |
 | 不改任何东西，先看命令长什么样 | `nas_exec.py --dry-run "<命令>"` |
 | 建用户 / 建共享文件夹 / 改权限 | `nas_exec.py "/usr/syno/sbin/synouser --add …" --yes`（守卫会先拦一次） |
 | 查这台 DSM 支持哪些 API | `dsm_api.py apis <关键字>` |
@@ -139,8 +173,10 @@ python3 scripts/syno.py a.mp4 --no-overwrite --remote /x/y    # 不覆盖已存�
 | 看看有没有新版本 | `check_update.py` |
 | 提交实测记录 / 求助 | 见下方「反馈与回传」两个收集表 |
 
-### 5. 排错
+### 7. 排错
 
+- 局域网发现一台都找不到 → 同广播域？ / 本机 Assistant 占着 UDP 9999？ /
+  设备还没装 DSM（裸机不回应 findhostd，只回应 SSDP）？
 - SSH 连不上 → 返回 255，检查：SSH 是否启用、端口、账号是否在 administrators 组
 - `sudo -i` 提不了权 → `NAS_USER` 不是 root 且没设 `NAS_PASS`，或账号不在 administrators 组
 - DSM 登录失败 → 脚本会按错误码给下一步建议（400 查凭据 / 401 账号被禁 / 403 锁定或 OTP）
@@ -200,8 +236,12 @@ python3 scripts/first_run.py
 | `CONTRIBUTING.md` | 协作规范：分支 + PR、提交前校验、内容红线 |
 | `references/cli-commands.md` | DSM CLI 命令（synouser / synoshare / synogroup …） |
 | `references/dsm-web-api.md` | DSM Web API 登录与调用 |
+| `references/lan-discovery.md` | 局域网发现：findhostd 协议 + mDNS/SSDP，两个发现脚本 |
+| `references/browser-automation.md` | 浏览器通路：装 DSM、装套件、建 btrfs 卷、快照计划 API 契约 |
 | `references/error-codes.md` | 错误码与排查套路 |
 | `references/ssh-and-troubleshooting.md` | SSH 连接与故障处理 |
+| `scripts/syno_findhost.py` | Synology Assistant 同款发现协议客户端（findhostd，只读） |
+| `scripts/discover_nas.py` | 局域网 NAS 发现（mDNS + SSDP + HTTP 指纹；端口探测默认关闭） |
 | `scripts/nas_exec.py` | SSH 执行器，内置只读/改配置守卫 |
 | `scripts/dsm_api.py` | DSM Web API 客户端 |
 | `scripts/first_run.py` | 打印使用须知（免责声明 + 两个收集表入口） |

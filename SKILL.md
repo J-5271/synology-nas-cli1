@@ -117,11 +117,55 @@ IdentitiesOnly yes
 
 | 通路 | 依赖 | 适用 | 参考 |
 |---|---|---|---|
+| 局域网发现（**先做这个**） | 与 NAS 同广播域 | 还不知道 IP / DSM 端口时，先把设备找出来 | references/lan-discovery.md |
 | DSM Web API（优先） | DSM 的 HTTP/HTTPS 端口 + 账号密码 | 查状态、列用户/共享文件夹、改 SSH 开关等大多数运维操作；不需要 SSH 处于开启状态 | references/dsm-web-api.md |
 | SSH + root | 22 或自定义 SSH 端口，且 DSM 里已启用 SSH | 需要真 shell：改系统文件、跑脚本、排查底层 | 本文档下方 + references/ssh-and-troubleshooting.md |
+| 浏览器自动化（兜底） | 能访问 DSM 网页 + `agent-browser` | Web API 干不了的：装 DSM、装套件、建共享文件夹、绕过磁盘兼容检查 | references/browser-automation.md |
 
 判断不了就用 `scripts/dsm_api.py info` 试 Web API —— 它最省事，也能顺带看出
 SSH 是否已启用（SYNO.Core.Terminal）。
+连不上（不知道 IP / 端口被改过）就先走局域网发现。
+
+#### 局域网发现通路
+
+```bash
+python3 scripts/syno_findhost.py              # findhostd：能拿型号/序列号/DSM build/自定义端口
+python3 scripts/syno_findhost.py --json       # 程序消费
+python3 scripts/discover_nas.py               # mDNS + SSDP + HTTP 指纹（默认不扫端口）
+python3 scripts/discover_nas.py --portscan    # 额外做 TCP 端口探测（主动扫描，需用户明确要求）
+```
+
+两条**互补，都要跑**：实测一台把 DSM 端口改成 888/889 的设备端口扫描完全漏掉、
+findhostd 一次命中；反过来一台没装 DSM 的裸机只回应 SSDP、findhostd 不理它。
+
+⚠️ 安全红线照旧：**不要主动做端口扫描**。`discover_nas.py` 的端口探测默认关闭，
+只有用户明确要求清点暴露面时才加 `--portscan`。
+
+⚠️ findhostd 的头号坑：脚本必须把套接字 **bind 在 UDP 9999** 再发查询，
+绑临时端口 100% 收不到回应（包括单播到已知 IP）。本机开着 Synology Assistant 时
+9999 被它占住，先退出。细节见 references/lan-discovery.md。
+
+发现结果含真实 IP / MAC / 序列号，**贴进技能包或提交前必须换成占位符**。
+
+#### 浏览器自动化通路（GUI 才能干的事）
+
+装 DSM、装套件、建共享文件夹这几件事 Web API 实测走不通
+（`Package.Installation.install` 返回 103、`Share.create` 返回 403），只能开浏览器点。
+
+核心姿势是在**已登录页面上下文里**执行 `SYNO.API.Request`（不用自己管 sid / token）：
+
+```bash
+agent-browser eval "new Promise(function(res){
+  SYNO.API.Request({api:'SYNO.Core.System', method:'info', version:1,
+    callback:function(s, r){ res(JSON.stringify({ok:s, model:r && r.model})) }});
+})"
+```
+
+⚠️ `callback` **第一个参数是布尔 success，数据在第二参**——写成 `function(r){r.data}`
+只会拿到 `true` / `{}`。更多坑与存储/快照 API 契约见 references/browser-automation.md。
+
+⚠️ 浏览器里的 DSM 会话等同完整凭据，**收尾必须 `agent-browser close`**。
+也不要把 sid / SynoToken 落盘成临时文件——页面 eval 已经带登录态，根本不需要。
 
 #### Web API 通路
 
