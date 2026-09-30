@@ -6,6 +6,9 @@ build/
 .cos_cred*
 _cred.json
 
+# 个人水位文件（check_update.py 产出，绝不入库；否则每晚会因 --mark-seen 改动空提交）
+.update_state.json
+
 # Python 缓存
 __pycache__/
 *.pyc
