@@ -157,9 +157,26 @@ def scan_secrets(files):
 
 
 # ---------------- 变更文件 ----------------
+def parse_since(since):
+    """接受 `YYYY-MM-DD` 或 `YYYY-MM-DD HH:MM:SS`。
+
+    坑（2026-10-04）：水位只存日期时，delta 起点落在当天 00:00，
+    于是「同步那一刻之后、同一天内」被脚本自己改过的文件（SKILL.md / CHANGELOG.md）
+    会被永久判定为「变更」，每周重复回传同一批内容 —— 正好违反「只回传新增能力」。
+    改为优先读 `last_stamp`（带秒），日期退化时才用 00:00。
+    """
+    s = (since or "").strip()
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    raise ValueError("bad --since (want YYYY-MM-DD[ HH:MM:SS]): %r" % since)
+
+
 def changed_files(since):
     """mtime >= since 的技能文件（按 DOC_ORDER 顺序）。"""
-    ts = datetime.datetime.strptime(since, "%Y-%m-%d").timestamp()
+    ts = parse_since(since).timestamp()
     out = []
     for rel, _, _ in DOC_FILES:
         p = os.path.join(SKILL_ROOT, rel)
@@ -237,7 +254,9 @@ def main():
     week_tag = f"{week[0]}-W{week[1]:02d}"
 
     if args.mode == "delta":
-        since = args.since or read_state().get("last_sync")
+        st = read_state()
+        # 水位优先用带秒的 last_stamp（见 parse_since 说明），没有再退回 last_sync
+        since = args.since or (st.get("last_stamp") or st.get("last_sync"))
         if not since:
             print("[ERROR] delta 需要 --since 或 build/.sync_state.json 里有 last_sync", file=sys.stderr)
             return 1

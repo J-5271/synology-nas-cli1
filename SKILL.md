@@ -562,7 +562,7 @@ python scripts/check_update.py --set-version 1.1.0   # 手动改本地版本基�
 | 全量条目名 | 《Synology NAS 管理技能包.md》—— 每月整合，REPLACE 覆盖 |
 | 周增量条目名 | 《Synology NAS 管理技能包-增量-YYYY-MM-DD.md》—— **只回传新增能力** |
 | 版本记录 | 产物头部 version=打包日期 + 生成时刻；`CHANGELOG.md` 逐条记时间与新增能力 |
-| 同步水位 | `build/.sync_state.json` 的 `last_sync`，作为下次 delta 的起点 |
+| 同步水位 | `build/.sync_state.json` 的 `last_stamp`（带秒，优先）／`last_sync`（日期，兜底），作为下次 delta 的起点 |
 
 节奏（已挂自动化）：
 
@@ -581,6 +581,10 @@ python scripts/nas_exec.py --dry-run "<命令>"            # 只打印将要执�
 python scripts/pack_skill.py --mode delta
 python scripts/pack_skill.py --mode delta --since 2026-09-21   # 手动指定起点
 python scripts/pack_skill.py --mode delta --list-changed        # 只看改了哪些文件
+
+# 坑（2026-10-04 修）：水位若只存日期，delta 会按当天 00:00 比 mtime，
+# 把「上次同步同一天内被脚本自己改过的 SKILL.md/CHANGELOG.md」永久算成增量 → 每周重复回传。
+# pack_skill.py 现优先取 last_stamp（带秒）；手动 --since 也支持 `YYYY-MM-DD HH:MM:SS`。
 
 # 3. 月：整包整合
 python scripts/pack_skill.py --mode full                 # → build/Synology NAS 管理技能包.md

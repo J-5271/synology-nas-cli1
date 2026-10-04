@@ -7,6 +7,26 @@
 > 每月做一次整合，重新打整包并 REPLACE 覆盖《Synology NAS 管理技能包.md》。
 > 所有内容脱敏，不记录任何真实账号/密码/密钥。
 
+## 2026-10-04 · 本周无新增 NAS 能力；修 delta 起点精度（防重复回传）
+
+- **本周（采集窗口 2026-09-27 → 2026-10-04）无新增能力**：工作区记忆日志中
+  没有新的 NAS / DSM / SSH / synouser / synoshare / dsm_api 操作记录、报错或新设备信息，
+  最近一次有证据的改动仍停在 2026-09-30（已并入 2026-10-02 整包 v2026.09）。
+  按「不臆造」原则，本次不新增任何设备档案条目与命令。
+- **修 `pack_skill.py` delta 起点精度（本周唯一代码改动）**：
+  水位原来只存 `YYYY-MM-DD`，`changed_files()` 按当天 00:00 比较 mtime。
+  实际后果（本次跑出来的）：2026-10-02 03:28 月度整包改过的 `SKILL.md` / `CHANGELOG.md`
+  mtime 落在 10-02 00:00 之后 → 被永久判为「变更」，**每周都会把这两个大文件当增量重复回传**，
+  直接违反「周度只回传新增能力」。
+  改为新增 `parse_since()`，接受 `YYYY-MM-DD[ HH:MM:SS]`，delta 默认优先取
+  `build/.sync_state.json` 的 `last_stamp`（带秒），无 stamp 才退回 `last_sync` 当天 00:00。
+  实测：修前 `--list-changed` 报 `SKILL.md`+`CHANGELOG.md`，修后只剩本次真改动的文件。
+- 校验：`python -m py_compile scripts/*.py` 全通过；
+  守卫不加 `--dry-run` 实测：改配置（`synouser --setpw`）返回 **2** 并打印只读策略提示，
+  只读命令（`synouser --list`）放行（本例止于本机 SSH 连接失败，非守卫拦截）。
+- 回传状态：**未完成** —— 当前会话 ima 连接器不可用（`create_media` / `add_knowledge` 不在工具列表），
+  增量产物留在本地，需人工上传或先接回 ima 连接器。
+
 ## 2026-09-30 · 套件离线安装封装（install_packages.py）
 
 - **新增 `scripts/install_packages.py`**：纯标准库，复用 `dsm_api.py` 的 DSM 传输层，
