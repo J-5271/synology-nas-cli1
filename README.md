@@ -173,6 +173,7 @@ agent-browser close                              # 收尾必做：会话等同�
 | 查这台 DSM 支持哪些 API | `dsm_api.py apis <关键字>` |
 | 传脚本到 NAS、取日志回来 | `syno.py` 上传 / 下载 |
 | 看看有没有新版本 | `check_update.py` |
+| 给 NAS 做性能压测 / VDI 容量评估 / 排查读吞吐瓶颈 | `references/vdi-nas-perf-test.md`（fio/DiskSpd 口径 + SMB/静态路由调优 + 踩坑） |
 | 提交实测记录 / 求助 | 见下方「反馈与回传」两个收集表 |
 
 ### 7. 排错
@@ -212,7 +213,8 @@ python3 scripts/check_update.py --mark-seen   # 记录当前水位
 
 ## 使用须知（安装后先看这个）
 
-首次加载技能会自动输出「免责声明 + 两个收集表」；也可手动查看：
+安装技能后由 `python3 scripts/first_run.py` 弹出一次（**不再每次触发技能时强制输出**）；
+也可随时手动查看：
 
 ```bash
 python3 scripts/first_run.py
@@ -241,6 +243,7 @@ python3 scripts/first_run.py
 | `references/dsm-deployment-guide.md` | 新机开荒：官方部署指南要点（RAID/文件系统选型、安全加固清单、DSM 6.2→7 对照） |
 | `references/lan-discovery.md` | 局域网发现：findhostd 协议 + mDNS/SSDP，两个发现脚本 |
 | `references/browser-automation.md` | 浏览器通路：装 DSM、装套件、建 btrfs 卷、快照计划 API 契约 |
+| `references/vdi-nas-perf-test.md` | VDI 性能压测与容量验证实测案例（fio/DiskSpd 口径 + SMB/静态路由调优 + 踩坑） |
 | `references/error-codes.md` | 错误码与排查套路 |
 | `references/ssh-and-troubleshooting.md` | SSH 连接与故障处理 |
 | `scripts/syno_findhost.py` | Synology Assistant 同款发现协议客户端（findhostd，只读） |
