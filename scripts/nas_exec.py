@@ -70,14 +70,34 @@ ls /usr/syno/sbin/ 2>/dev/null | grep -E '^(synouser|synogroup|synoshare|synonet
   || echo "(none found - check DSM version)"
 """.strip()
 
-DESTRUCTIVE = ("rm ", "mkfs", "reboot", "shutdown", "poweroff", "init ",
-               "--del", "--disable", "--stop", "format", "> /dev/")
+# Command words that can destroy data or drop connectivity. Matched against the
+# command word (first token of each pipeline stage) ONLY — never against quoted
+# arguments or command output. 踩过的坑（2026-10-12 实测）：旧的子串匹配把
+# `... | grep 'rm '` / samba-tool testparm 输出里的 "rm " 也当成危险词，
+# 只读命令被误拦。分词后引号内容不参与匹配，根因消除。
+DESTRUCTIVE_COMMANDS = ("rm", "rmdir", "mkfs", "mkswap", "dd", "fdisk", "wipefs",
+                        "shred", "reboot", "shutdown", "poweroff", "halt", "init",
+                        "swapoff", "blockdev", "cryptsetup", "sfdisk", "parted")
+
+# Destructive flags — matched only as standalone unquoted argument tokens.
+DESTRUCTIVE_FLAGS = ("--del", "--delete", "--remove", "--disable", "--stop",
+                     "--setpw", "--set_gateway", "--set_dns", "--manual",
+                     "--format", "--erase", "--destroy")
+
+# Read-only subcommands of third-party tools (documentation value + explicit
+# bypass): these must never be flagged even when other tokens look suspicious.
+READONLY_SUBCOMMANDS = {
+    "samba-tool": ("testparm", "list", "show", "get", "getgroups",
+                   "passwordsettings", "ldapcmp", "export"),
+    "synoacltool": ("-get",),
+}
 
 # Two independent guards, both bypassed with `--yes` — which means "the user has
 # been told what this does and agreed". Default stance: read-only, never touch
 # device configuration unless the user explicitly asked for that change.
 #
-# 1. DESTRUCTIVE — things that can destroy data or drop connectivity.
+# 1. DESTRUCTIVE_COMMANDS / DESTRUCTIVE_FLAGS — things that can destroy data or
+#    drop connectivity, matched by command word / flag token (see destructive_hits).
 # 2. MUTATING_TOKENS / CLI_TOOLS — things that rewrite persistent config, handled
 #    by config_mutations() below.
 
@@ -161,6 +181,97 @@ def command_names(cmd):
     return names
 
 
+def _tokenize(stage):
+    """Split one pipeline stage into tokens, quote-aware.
+
+    Quotes are stripped from the returned tokens; quoted content stays inside a
+    single token so it can never be mistaken for a command word or a flag.
+    """
+    tokens, buf, quote, i = [], [], None, 0
+    while i < len(stage):
+        ch = stage[i]
+        if quote:
+            if ch == quote:
+                quote = None
+            else:
+                buf.append(ch)
+            i += 1
+        elif ch in "'\"":
+            quote = ch
+            i += 1
+        elif ch.isspace():
+            if buf:
+                tokens.append("".join(buf))
+                buf = []
+            i += 1
+        else:
+            buf.append(ch)
+            i += 1
+    if buf:
+        tokens.append("".join(buf))
+    return tokens
+
+
+def _strip_quoted(s):
+    """Remove quoted segments so substring checks ignore quoted text."""
+    out, quote, i = [], None, 0
+    while i < len(s):
+        ch = s[i]
+        if quote:
+            if ch == quote:
+                quote = None
+            i += 1
+        elif ch in "'\"":
+            quote = ch
+            i += 1
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
+def destructive_hits(cmd):
+    """Reasons this command looks destructive — command words and flags only.
+
+    Fixes the 2026-10-12 false positive where `samba-tool testparm` was blocked:
+    the old check did `"rm " in cmd` over the whole command string, so a grep
+    pattern like `grep 'rm '` (or any quoted text containing "rm ") tripped it.
+    Now only the executable name of each stage and standalone flag tokens are
+    inspected; quoted arguments and redirects-to-/dev are checked on the
+    quote-stripped text.
+    """
+    hits = []
+    for stage in _split_stages(cmd):
+        tokens = _tokenize(stage)
+        if not tokens:
+            continue
+        word = os.path.basename(tokens[0]).lower()
+        if word in DESTRUCTIVE_COMMANDS or word.startswith("mkfs."):
+            hits.append(word)
+        for tok in tokens[1:]:
+            low = tok.lower()
+            if low in DESTRUCTIVE_FLAGS:
+                hits.append(low)
+        bare = _strip_quoted(stage)
+        if "> /dev/" in bare or ">>/dev/" in bare:
+            hits.append("> /dev/")
+    return sorted(set(hits))
+
+
+def is_readonly_subcommand(cmd):
+    """True when the command is a known read-only subcommand of a third-party
+    tool (e.g. `samba-tool testparm`, `synoacltool -get`)."""
+    for stage in _split_stages(cmd):
+        tokens = _tokenize(stage)
+        if not tokens:
+            continue
+        word = os.path.basename(tokens[0]).lower()
+        allowed = READONLY_SUBCOMMANDS.get(word)
+        if allowed and len(tokens) > 1 and tokens[1].lower() in allowed:
+            return True
+    return False
+
+
 def config_mutations(cmd):
     """Reasons this command rewrites the NAS's persistent configuration.
 
@@ -169,8 +280,12 @@ def config_mutations(cmd):
     --help before running anything" is the workflow this skill recommends.
     Anything not obviously read-only gets flagged and needs an explicit --yes
     (i.e. the user was told and agreed).
+
+    Substring tokens are matched on the quote-stripped command, so quoted
+    regexes / messages cannot trigger false positives (same class of bug as
+    the destructive_hits() fix).
     """
-    low = cmd.lower()
+    low = _strip_quoted(cmd).lower()
     hits = [tok.strip() for tok in MUTATING_TOKENS if tok in low]
     invoked = command_names(cmd)
     for tool in CLI_TOOLS:
@@ -345,13 +460,14 @@ def main():
 
     # --health is a read-only probe by construction; never gate it.
     if not args.health and not args.confirmed:
-        hits = [t for t in DESTRUCTIVE if t in cmd.lower()]
+        readonly_sub = is_readonly_subcommand(cmd)
+        hits = [] if readonly_sub else destructive_hits(cmd)
         if hits:
             print(f"[WARN] looks destructive ({', '.join(hits)}).\n"
                   f"       Confirm with the user, then re-run with --yes. "
                   f"Use --dry-run to inspect first.", file=sys.stderr)
             return 2
-        muts = config_mutations(cmd)
+        muts = [] if readonly_sub else config_mutations(cmd)
         if muts:
             print(f"[WARN] this changes NAS configuration ({', '.join(muts)}).\n"
                   f"       Default policy is read-only — only run it if the user "

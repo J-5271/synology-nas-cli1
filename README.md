@@ -19,7 +19,7 @@
 Synology / 群晖 NAS 管理技能包。唯一真实来源是**本地 git 仓库**；
 GitHub 公开仓库 <https://github.com/J-5271/synology-nas-cli1> 是**只读分发镜像**。
 
-### 五条通路，按场景选
+### 六条通路，按场景选
 
 | 通路 | 脚本 | 前提 | 能干什么 | 典型场景 |
 |---|---|---|---|---|
@@ -27,6 +27,7 @@ GitHub 公开仓库 <https://github.com/J-5271/synology-nas-cli1> 是**只读分
 | **SSH + root** | `nas_exec.py` | DSM 开启 SSH，账号在 administrators 组 | 跑任意 DSM 命令、读 `/etc/VERSION`、用官方 CLI（synouser / synoshare / synonet…） | 巡检、批量改用户与共享、装 Docker |
 | **DSM Web API** | `dsm_api.py` | **不用开 SSH**，能访问 DSM 网页即可 | 查系统信息、共享文件夹、用户、SSH 开关状态、探查 1600+ 注册 API | 客户环境不让开 SSH、只要读状态 |
 | **FileStation 传输** | `syno.py` | 同上（Web API 通道） | 上传 / 下载 / 列目录，支持多文件与管道 | 传脚本、取日志、导备份 |
+| **AD 域控管理** | `nas_exec.py`（samba-tool / LDAPS） | 装了 Directory Server，LDAPS(636) 可达 | 域用户/组/密码策略查询；GPO 需 LDAP + SYSVOL 直改（域控无 ADWS） | VDI 加域、FSLogix ODFC、GPO 排查 |
 | **浏览器自动化** | `agent-browser`（外部工具） | 能访问 DSM 网页 | GUI 才能干的事：装 DSM、装套件、建共享文件夹、绕过磁盘兼容检查 | 新机开荒、套件装不上 |
 
 ### 设计取舍（为什么值得用）
@@ -174,6 +175,10 @@ agent-browser close                              # 收尾必做：会话等同�
 | 传脚本到 NAS、取日志回来 | `syno.py` 上传 / 下载 |
 | 看看有没有新版本 | `check_update.py` |
 | 给 NAS 做性能压测 / VDI 容量评估 / 排查读吞吐瓶颈 | `references/vdi-nas-perf-test.md`（fio/DiskSpd 口径 + SMB/静态路由调优 + 踩坑） |
+| 群晖作 AD 域控：查域用户/组/密码策略 | `nas_exec.py "samba-tool user list"`（只读；samba-tool 在 `/usr/local/bin/`） |
+| 建 GPO / 改 GPO（群晖域控无 ADWS，GPMC 不可用） | `references/synology-gpo.md`（LDAP + SYSVOL 直改完整清单） |
+| VDI 用户数据上 NAS：FSLogix ODFC 容器 / OST 重定向 | `references/fslogix-odfc.md`（共享 ACL + 注册表 10 值 + 验证） |
+| 目录 ACL 细粒度控制（谁能建目录、谁能删） | `references/synoacltool-acl.md`（权限位映射 + 四大怪癖） |
 | 提交实测记录 / 求助 | 见下方「反馈与回传」两个收集表 |
 
 ### 7. 排错
@@ -246,6 +251,9 @@ python3 scripts/first_run.py
 | `references/vdi-nas-perf-test.md` | VDI 性能压测与容量验证实测案例（fio/DiskSpd 口径 + SMB/静态路由调优 + 踩坑） |
 | `references/error-codes.md` | 错误码与排查套路 |
 | `references/ssh-and-troubleshooting.md` | SSH 连接与故障处理 |
+| `references/synoacltool-acl.md` | synoacltool ACL 实战：权限位映射、模板、四大怪癖、FSLogix 案例 |
+| `references/synology-gpo.md` | 群晖域控 GPO 管理：无 ADWS 时的 LDAP + SYSVOL 直改方案 |
+| `references/fslogix-odfc.md` | FSLogix ODFC 容器部署（群晖）：共享 ACL、注册表配置、验证 |
 | `scripts/syno_findhost.py` | Synology Assistant 同款发现协议客户端（findhostd，只读） |
 | `scripts/discover_nas.py` | 局域网 NAS 发现（mDNS + SSDP + HTTP 指纹；端口探测默认关闭） |
 | `scripts/nas_exec.py` | SSH 执行器，内置只读/改配置守卫 |

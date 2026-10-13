@@ -119,6 +119,7 @@ IdentitiesOnly yes
 |---|---|---|---|
 | 局域网发现（**先做这个**） | 与 NAS 同广播域 | 还不知道 IP / DSM 端口时，先把设备找出来 | references/lan-discovery.md |
 | DSM Web API（优先） | DSM 的 HTTP/HTTPS 端口 + 账号密码 | 查状态、列用户/共享文件夹、改 SSH 开关等大多数运维操作；不需要 SSH 处于开启状态 | references/dsm-web-api.md |
+| AD 域控管理 | LDAPS(636) + 域管凭据；SYSVOL 文件走 SSH exec 通道 | Directory Server（Samba AD DC）的用户/组/密码策略/GPO 管理 | references/synology-gpo.md |
 | SSH + root | 22 或自定义 SSH 端口，且 DSM 里已启用 SSH | 需要真 shell：改系统文件、跑脚本、排查底层 | 本文档下方 + references/ssh-and-troubleshooting.md |
 | 浏览器自动化（兜底） | 能访问 DSM 网页 + `agent-browser` | Web API 干不了的：装 DSM、装套件、建共享文件夹、绕过磁盘兼容检查 | references/browser-automation.md |
 
@@ -225,6 +226,33 @@ python3 scripts/install_packages.py setup \
 - **局限**：存储空间分析器的「每周报表」没有 Web API（全量 API 注册表里无 StorageAnalyzer 条目），
   只能进套件 UI 手动建计划；共享文件夹建在部分机型仍可能 403，回退浏览器路线。
 - 完整坑位与字段契约见 `references/package-install.md`。
+
+#### AD 域控管理通路（Directory Server，Samba AD DC）
+
+NAS 装了 Directory Server 套件作域控时走这条。**核心限制：群晖域控不运行
+ADWS**，GPMC / PowerShell GPO 模块 / Get-ADDomain 全部不可用
+（见 references/synology-gpo.md 第一节），只能直接操作 LDAP + SYSVOL。
+
+```bash
+export LDAP_HOST="<NAS-IP>" LDAP_USER='Administrator@<域>' LDAP_PASS='<密码>'
+# LDAP 简单绑定必须走 LDAPS(636) 或 StartTLS；明文 389 即使密码正确
+# 也报 strongerAuthRequired（域密码策略默认最长 42 天，过期返回 532）
+```
+
+- 域账号/组/密码策略：`samba-tool`（实测在 `/usr/local/bin/samba-tool`，
+  不在套件目录）。只读速查：`user list` / `user getgroups` /
+  `domain passwordsettings show` / `testparm`。
+- GPO 管理：LDAP add groupPolicyContainer（+ CN=Machine / CN=User 两个
+  子容器，容易漏）+ gPLink 链接 + SYSVOL 落 GPT.INI / MACHINE/Registry.pol。
+  registry.pol 是二进制格式（UTF-16 分隔符、data 后无分号），完整清单与
+  踩坑见 references/synology-gpo.md。
+- SYSVOL 路径：`/volume1/@appdata/DirectoryServerForWindowsDomain/private/sysvol/<域>/`。
+- **SFTP 写不了 @appdata 路径**（报 No such file）；文件传输走 SSH exec
+  通道 + base64 分块（nas_exec.py 的 stdin 模式即可承载）。
+- 典型落地场景：FSLogix ODFC 容器（Outlook OST / Teams 重定向到 NAS），
+  含共享 ACL、10 个注册表值、验证方法 → references/fslogix-odfc.md；
+  目录 ACL 细粒度控制（synoacltool 权限位 / 四大怪癖）→
+  references/synoacltool-acl.md。
 
 #### SSH 通路
 
@@ -360,9 +388,17 @@ RS6426xs+（双万兆）上的承载验证，含：
 
 > 仅作方法论与调优参考，机型/DSM 版本差异大，落地前请先在自己设备上 `--dry-run` / 小批量验证。
 
+把 NAS 用作 **VDI 用户数据承载（FSLogix ODFC 容器 / Outlook OST 重定向）** 时，
+另见 **references/fslogix-odfc.md**：共享 ACL、ODFC 注册表 10 值、群晖 ACL
+四大怪癖与验证方法，与上面的性能测试互补。
+
 ### 细粒度权限：synoshare 做不到（2026-09-21 实测）
 
 需求原型：「某账号能建文件夹/文件、能删自己建的文件，但删不掉文件夹」。
+
+命令行侧的 ACL 操作（synoacltool 权限位映射、断开继承、条目排序陷阱、
+域主体写法）见 **references/synoacltool-acl.md**（2026-10-12 实测，
+含 FSLogix 共享完整案例）。
 
 - **共享文件夹三档（NA/RO/RW）做不了。** synoshare --setuser 只有 NA/RO/RW 三档
   （见 references/cli-commands.md），没有「只给文件的删除位」这种粒度。
@@ -484,7 +520,7 @@ RS6426xs+（双万兆）上的承载验证，含：
 | Release 下载页 | https://github.com/J-5271/synology-nas-cli1/releases |
 | 提交历史 | https://github.com/J-5271/synology-nas-cli1/commits/main |
 | 腾讯文档版本记录（**GitHub 不可达时的镜像**） | **https://docs.qq.com/aio/DQ05IdUxxR3ZtUndG** （《synology-nas-cli 版本更新记录》，file_id `CNHuLqGvmRwF`） |
-| 本地版本基线 | `VERSION` 文件（当前 `1.0.2`） |
+| 本地版本基线 | `VERSION` 文件（当前 `1.1.0`；**以 VERSION 文件为准**，本文其它数字过期时以此为准） |
 | 检查水位 | `.update_state.json`（`last_version` / `last_commit` / `last_checked`） |
 | 检查脚本 | `scripts/check_update.py`（纯标准库，只访问 api.github.com 公开只读接口） |
 

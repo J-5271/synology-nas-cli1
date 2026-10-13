@@ -2,6 +2,40 @@
 
 > **已于 2026-10-02 并入整包 v2026.09**（2026-09 全部周增量已合并进主干，本地 tag `v2026.09`）
 
+## 2026-10-13 · v1.1.0 新增 AD 域控管理能力（GPO / FSLogix / ACL）
+
+- **新增 `references/synology-gpo.md`**：群晖域控 GPO 管理（无 ADWS 绕过方案）。
+  基于 2026-10-12 DS918+（DSM 7.3，Samba AD 域控）实操：域控不运行 ADWS，
+  GPMC / PowerShell GPO 模块 / Get-ADDomain 均不可用，唯一可行路线是
+  LDAP（必须 LDAPS 636）+ SYSVOL 直改。含 GPO 创建完整清单
+  （groupPolicyContainer 对象 / CN=Machine+CN=User 子容器 / gPLink / GPT.INI）、
+  registry.pol 二进制格式规范与生成代码、默认域策略逐字节对比调试法、
+  事件 ID 1058/1096/1502 错误码速查与排错顺序。
+- **新增 `references/fslogix-odfc.md`**：FSLogix ODFC 容器在群晖上的完整部署。
+  含共享子目录 ACL 配置（断开继承 + 三条目 ---n）、Agent 静默安装、
+  ODFC 注册表 10 值完整表、群晖环境 5 个关键结论、验证方法与实测记录。
+- **新增 `references/synoacltool-acl.md`**：synoacltool 实战。13 位权限串 →
+  Windows 权限映射表、常用模板（FC/RW/RO/仅穿越/域用户容器根）、
+  继承标志、四大怪癖（mkdir 需 W+C / 他人 fd-- 条目阻止 mkdir /
+  CREATOR OWNER 不支持 / owner 隐式权限更宽）、条目排序陷阱、域主体写法。
+- **SKILL.md**：执行方式通路表新增「AD 域控管理」行；新增
+  「AD 域控管理通路（Directory Server）」章节（凭据 LDAP_USER/LDAP_PASS、
+  samba-tool 位置 / SYSVOL 路径 / SFTP 写不了 @appdata 等环境备注）；
+  细粒度权限与 VDI 两节加 references 指引；版本基线文案与 VERSION 对齐
+  （声明以 VERSION 文件为准）。
+- **修 `scripts/nas_exec.py` 只读守卫误拦**：原 DESTRUCTIVE 检查对整条命令
+  做子串匹配，`grep 'rm '` 这类引号内文本 / testparm 输出中的 "rm " 会误触
+  （2026-10-12 实测 `samba-tool testparm` 被拦）。改为按 shell 分词后的
+  命令词 + 独立选项 token 匹配，引号内容与重定向检查均走 quote-stripped
+  文本；config_mutations 的子串检查同样改为忽略引号内文本；
+  新增 samba-tool / synoacltool 只读子命令白名单。16 条正反用例回归通过。
+- `VERSION` → `1.1.0`（新增能力，语义化 minor）。
+
+> 规则：每周只回传「新增的能力」到 ima「公用nas操作技能」库（kb_id `7510180233248137`），
+> 条目名《Synology NAS 管理技能包-增量-YYYY-MM-DD.md》；
+> 每月做一次整合，重新打整包并 REPLACE 覆盖《Synology NAS 管理技能包.md》。
+> 所有内容脱敏，不记录任何真实账号/密码/密钥。
+
 ## 2026-10-11 · 新增 VDI NAS 性能测试参考 + 免责声明改为安装时单次弹出
 
 - **新增 `references/vdi-nas-perf-test.md`**：整合 WorkBuddy 资料库《VDI NAS 性能测试》归档
