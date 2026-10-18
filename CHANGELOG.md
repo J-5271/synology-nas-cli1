@@ -2,6 +2,64 @@
 
 > **已于 2026-10-02 并入整包 v2026.09**（2026-09 全部周增量已合并进主干，本地 tag `v2026.09`）
 
+## 2026-10-14 · v1.2.0 NFS 文件服务 + 性能与网络诊断（并合入上游 v1.1.0）
+
+> 本次是**双向合并**：先把本地基线快进到上游 **v1.1.0**（AD 域控 GPO/FSLogix/ACL、
+> VDI 压测参考、只读守卫 quote-aware 修复、免责声明改为安装时单次弹出），
+> 再叠加本次新增的 NFS 与性能诊断两条专项能力。v1.0.2 / v1.0.3 两个本地版本号
+> **从未发布**，本次统一跳到 **1.2.0**（相对已发布的 1.1.0 属新增能力，语义化 minor）。
+
+- **新增 `references/nfs-service.md`** —— NFS 从「有没有导出」到「能不能挂、该怎么选」一整条：
+  - **头号纠正：`/etc/exports` 里没有某个共享 ≠ NFS 没开。** 权威判据是 Web API
+    `SYNO.Core.FileServ.NFS.SharePrivilege load share_name=<共享>` 返回的 `rule` 是不是空数组。
+    该接口只有 `load` / `save`，**参数名是 `rule`（不是 rules）**，且是**整体覆盖**——
+    改一条规则要先读全量再写回，否则会冲掉别人的规则。
+  - NFSv3 协议要点与 6 个实测坑（RPC 头含 `proc` **不能缓存复用**，否则 MNT 会以 EXPORT 发出去、
+    表现为「MNT status=1 像是权限问题」；`CREATE` 返回 `post_op_fh3` 有布尔前缀；
+    单次 `WRITE` 超上限会被 nfsd **直接 RST**，实测上限 1 MiB；记录标记可能多片段；…），
+    附 MOUNT / NFS 两层状态码对照。
+  - UNIX 权限与 UID 映射（`/volume1/homes` 是 711，非属主能穿越不能列目录）。
+  - **写语义**：实测 Synology nfsd **不给 `UNSTABLE` 开写回**，`COMMIT` 瞬时返回 →
+    NFS 写天然是持久化口径，和 SMB 的页缓存口径不可直接比。
+  - Windows Client for NFS 的两个绕不开的限制：**匿名 UID/GID 是整机注册表级**、
+    **挂载按会话/账户** → VDI「每人挂自己 home」在 NFSv3 + Windows 下难落地
+    （这是此前 VDI 项目最终选 SMB 的现实理由之一）。
+  - NFS vs SMB 取舍对照表（含「别把用户数据放到 ESXi 正在用的同一个导出上」）。
+- **新增 `references/perf-and-network.md`** —— 「NAS 慢」怎么定位：
+  - **三层对照法**：客户端观测 / **NAS 侧 `/proc/net/dev` 实测** / NAS 本机裸盘。
+    只看客户端数字会把「客户端消费不动」误判成「NAS 慢」（实测客户端 1044 MiB/s 那一次，
+    NAS 实际发出 1160 MiB/s）。
+  - **多网卡路由陷阱**：DSM 默认路由只挂一张卡 → 跨网段**读**被压回千兆口，
+    症状是「写正常、读 ~110 MiB/s 且延迟恒定、方差极小」。给了
+    `ip route get` / `ip rule list` / `table static-table` 的诊断与修正，
+    并强调**该改动是临时的（重启即丢）、属改配置、必须先与用户确认**。
+    顺带排除两个常见误判：SMB Multichannel 开关、RAID 写惩罚。
+  - **口径陷阱**：同一目录 `dd` 的三种写法（`oflag=direct` / `direct,dsync` / `conv=fsync`）
+    能差 3 倍以上（实测 701 / 401 / 1335 MiB/s），写的结论必须标口径。
+  - 附一台万兆 NAS 的实测基线表（空载 RPC 0.106 ms、读 1160 MiB/s、写 546–577 MiB/s …）。
+- **新增脚本**：
+  - `scripts/nas_nfs.py` —— 共享文件夹 NFS 导出规则 `list` / `show` / `set` / `revert`；
+    `set` / `revert` 属变更操作，不加 `--yes` 直接返回 2（只读优先红线）。
+  - `scripts/nfs3_client.py` —— **纯标准库实现的 NFSv3 客户端**，不需要系统 NFS 栈、
+    不需要管理员。子命令：`verify`（MNT/READDIR/CREATE/WRITE/回读校验/REMOVE 全流程）、
+    `rsize`（探测服务端上限）、`read[-sweep]` / `write[-sweep]` / `randread[-sweep]` / `lat`。
+    这是「Windows 装不了 NFS 客户端」时唯一还能验证 NAS 侧的办法。
+  - `scripts/nas_nic_sample.py` —— SSH 读 `/proc/net/dev` 逐秒采样各网卡 RX/TX（只读），
+    判定瓶颈侧的关键工具。
+- **`scripts/dsm_api.py`**：`call()` 增加可选 `post=True`（参数值很长时更稳，如 NFS 的 `rule` JSON）。
+- **既有文档更新**：
+  - `references/dsm-web-api.md`：速查表补 `SYNO.Core.FileServ.NFS.SharePrivilege`、
+    `SYNO.Core.FileServ.SMB`（**必须 POST + 全字段，否则 error 2001**）、
+    `SYNO.Core.Network.Ethernet`；`Routing` 标注为未验证。
+  - `references/ssh-and-troubleshooting.md`：新增第 9–12 条 —— 先 `whoami`/`id` 确认身份
+    （DSM 7 上 SSH 用户**不是 root**，读 `/etc/exports` 报 Permission denied 是权限边界）、
+    `sudo -S` 喂密码与提示串污染 stdout、**Git Bash `MSYS_NO_PATHCONV=1` 路径转换坑**。
+  - `SKILL.md`：新增「文件服务（NFS）与性能诊断」小节与三条最值钱结论；
+    **实测设备档案新增档案 B（RS6426xs+ / DSM 7.4.1-90080）**；常见坑补三条。
+  - `README.md`：新增专项能力表、第 6 节 NFS 与性能诊断快速上手、场景速查 6 条、目录与排错同步。
+  - `scripts/pack_skill.py`：打包清单（DOC_ORDER）补入新增的 2 份参考与 3 个脚本。
+- `VERSION` → `1.2.0`。
+
 ## 2026-10-13 · v1.1.0 新增 AD 域控管理能力（GPO / FSLogix / ACL）
 
 - **新增 `references/synology-gpo.md`**：群晖域控 GPO 管理（无 ADWS 绕过方案）。

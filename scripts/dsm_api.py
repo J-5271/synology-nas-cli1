@@ -152,20 +152,29 @@ class DSM:
             return False
 
     # ------------------------------------------------------------- api call
-    def call(self, api, method, version=1, extra=None, cgi="entry.cgi", retry=True):
+    def call(self, api, method, version=1, extra=None, cgi="entry.cgi", retry=True,
+             post=False):
+        """post=True 时改用 POST —— 参数值很长（如 NFS 的 rule JSON）时更稳。"""
         if not self.sid and not self.login():
             return None
         params = {"api": api, "version": version, "method": method, "_sid": self.sid}
         if extra:
             params.update(extra)
-        r = self._get(cgi, params)
+        try:
+            r = self._post(cgi, params) if post else self._get(cgi, params)
+        except Exception as e:
+            if not post:
+                raise
+            print(f"[WARN] POST {api} {method} failed: {e}", file=sys.stderr)
+            return None
         code = (r.get("error") or {}).get("code")
         # 119 = session expired -> re-login once and retry
         if code == 119 and retry:
             print("[INFO] session expired, re-authenticating", file=sys.stderr)
             self.sid = None
             if self.login():
-                return self.call(api, method, version, extra, cgi, retry=False)
+                return self.call(api, method, version, extra, cgi, retry=False,
+                                 post=post)
         return r
 
 

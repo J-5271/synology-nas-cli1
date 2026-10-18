@@ -75,6 +75,34 @@ GET /webapi/query.cgi?api=SYNO.API.Info&version=1&method=Query&query=SYNO.Core.T
 | 已装套件 | SYNO.Core.Package.Server | list | 1 |
 | 磁盘/存储池 | SYNO.Storage.CGI.Storage | load_info | 1 |
 | 任务/Findstation 文件列举 | SYNO.FileStation.List | list_share | 2 |
+| **NFS 导出规则（读/写）** | **SYNO.Core.FileServ.NFS.SharePrivilege** | **load / save** | 1 |
+| SMB 服务设置 | SYNO.Core.FileServ.SMB | get / set | 3 |
+| 网卡与地址 | SYNO.Core.Network.Ethernet | get | 1 |
+| 静态路由 | SYNO.Core.Network.Routing | get / set | 1（未验证，动手前先 `apis Routing` 查注册表） |
+
+### NFS 导出规则（只有 load / save，没有 add / delete）
+
+```
+load  1  share_name=<共享名>                      -> data.rule[]（空数组 = 未导出）
+save  1  share_name=<共享名>  rule=<JSON数组字符串>  ← 参数名是 rule，不是 rules
+```
+
+- `rule` 是**整个数组整体覆盖**，改一条规则要先读全量再写回，别直接把别人的规则冲掉。
+- 建议用 **POST**：规则 JSON 较长，走 GET 容易撞 URL 长度限制。
+  `scripts/dsm_api.py` 的 `call(..., post=True)` 或 `scripts/nas_nfs.py` 已封装。
+- 最容易被误判的一点：**`/etc/exports` 里没有某个共享 ≠ NFS 服务没开**，
+  要用这个 API 看 `rule` 是否为空数组才能定性。详见 `references/nfs-service.md`。
+
+### SMB 服务设置（v3 的硬约束）
+
+实测：`SYNO.Core.FileServ.SMB` 的 `set` 必须满足三条，缺一条就报 **error 2001**：
+
+1. 用 **POST** 且 body 为 `application/x-www-form-urlencoded`（走 GET 直接失败）；
+2. 字段名与取值必须**由 `get` 原样带回来**，不能只传想改的那一个字段；
+3. 布尔字段传 `true` / `false`（不是 `1` / `0`）。
+
+改动前先 `get` 存一份完整返回，`set` 时以它为基底改，改完再 `get` 复核。
+
 
 判断账号是否管理员：别指望某个 "am I admin" 接口，
 直接试着调用只有管理员能调的 API（如 SYNO.Core.Share list / SYNO.Core.User list），
@@ -107,3 +135,9 @@ python3 dsm_api.py logout
 
 - 2026-09-27 周度巡检：本周无新的 DSM Web API 实测记录（未连接新设备），
   第三节错误码与第四节 API 速查表不变。已知结论仍是 DS918+ / DSM 7.3-81180 上的实测。
+- 2026-10-14 新增实测（RS6426xs+ / DSM 7.4.1-90080）：
+  - 第四节补充 `SYNO.Core.FileServ.NFS.SharePrivilege`（NFS 导出规则，仅 load/save）、
+    `SYNO.Core.FileServ.SMB`（v3，必须 POST + 全字段，否则 2001）、
+    `SYNO.Core.Network.Ethernet`，以及未验证的 `SYNO.Core.Network.Routing`。
+  - `dsm_api.py` 的 `call()` 增加可选的 `post=True`（长参数值更稳）。
+  - 配套新脚本 `nas_nfs.py`。

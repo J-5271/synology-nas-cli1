@@ -30,6 +30,17 @@ GitHub 公开仓库 <https://github.com/J-5271/synology-nas-cli1> 是**只读分
 | **AD 域控管理** | `nas_exec.py`（samba-tool / LDAPS） | 装了 Directory Server，LDAPS(636) 可达 | 域用户/组/密码策略查询；GPO 需 LDAP + SYSVOL 直改（域控无 ADWS） | VDI 加域、FSLogix ODFC、GPO 排查 |
 | **浏览器自动化** | `agent-browser`（外部工具） | 能访问 DSM 网页 | GUI 才能干的事：装 DSM、装套件、建共享文件夹、绕过磁盘兼容检查 | 新机开荒、套件装不上 |
 
+### 两条专项能力（NFS · 性能诊断）
+
+不属于「通路」，是两类**能独立查、能独立测**的能力，各有完整参考文档：
+
+| 主题 | 脚本 | 一句话 |
+|---|---|---|
+| **NFS 导出与挂载** | `nas_nfs.py` / `nfs3_client.py` | 查改共享的 NFS 导出规则；没装 NFS 客户端也能验证能不能挂、跑读写基准 |
+| **性能与网络诊断** | `nas_nic_sample.py` / `nfs3_client.py` | 在 NAS 侧采样网卡速率，判定「慢」到底是客户端、链路还是后端存储的问题 |
+
+参考：`references/nfs-service.md`、`references/perf-and-network.md`。
+
 ### 设计取舍（为什么值得用）
 
 - **只读优先**：改配置的命令默认被守卫拦下（exit 2），必须用户明确确认后加 `--yes` 才执行。
@@ -160,7 +171,37 @@ agent-browser close                              # 收尾必做：会话等同�
 装 DSM / 装套件 / 建共享文件夹 / 建 btrfs 卷 + 快照计划的完整实测见
 `references/browser-automation.md`。
 
-### 6. 场景速查
+### 6. 专项：NFS 导出与性能诊断
+
+```bash
+# —— NFS 导出规则（默认只读，写操作要 --yes）——
+export DSM_HOST="http://<NAS_IP>:5000" DSM_ACCOUNT=<账号> DSM_PASSWORD='<密码>'
+python3 scripts/nas_nfs.py list                              # 每个共享的 NFS 规则
+python3 scripts/nas_nfs.py list --share <共享名>              # 单个共享
+python3 scripts/nas_nfs.py set --share <共享名> --client <网段> --privilege rw --yes
+python3 scripts/nas_nfs.py revert --share <共享名> --yes      # 回滚为「未导出」
+
+# —— 没装 NFS 客户端也能验证能不能挂 + 跑基准（纯标准库，不要管理员）——
+python3 scripts/nfs3_client.py verify --host <NAS_IP> \
+    --export /volume2/<共享名> --subdir <子目录>
+python3 scripts/nfs3_client.py read-sweep --host <NAS_IP> --export /volume2/<共享名> \
+    --subdir <目录> --file <大文件> --size-mib 8192 --sweep 1,4,8,16
+python3 scripts/nfs3_client.py write-sweep --host <NAS_IP> --export /volume2/<共享名> \
+    --subdir <目录> --size-mib 8192 --sweep 1,4,16
+python3 scripts/nfs3_client.py randread-sweep --host <NAS_IP> --export /volume2/<共享名> \
+    --subdir <目录> --file <大文件> --io-kib 32 --sweep 1,4,8,16 --count 2000
+
+# —— 性能诊断：负载正在跑的时候，在另一个窗口采样 NAS 网卡 ——
+export NAS_HOST=<NAS_IP> NAS_USER=<管理员账号> NAS_PASS='<密码>'
+python3 scripts/nas_nic_sample.py --ifaces eth0,eth2 --seconds 15
+```
+
+判读：NAS 的 **TX ≈ 客户端收到的** → 瓶颈不在 NAS；**TX 远大于客户端** → 客户端消费不动；
+**RX/TX 和客户端一致、且远低于 NAS 本机裸盘** → 后端存储本身到顶。
+多网卡机器上「写正常、读被压在 ~110 MiB/s」多半是 NAS 默认路由走了千兆口，
+`ip route get <客户端IP>` 一眼可判（详见 `references/perf-and-network.md`）。
+
+### 7. 场景速查
 
 | 我想… | 用什么 |
 |---|---|
@@ -173,6 +214,12 @@ agent-browser close                              # 收尾必做：会话等同�
 | 建用户 / 建共享文件夹 / 改权限 | `nas_exec.py "/usr/syno/sbin/synouser --add …" --yes`（守卫会先拦一次） |
 | 查这台 DSM 支持哪些 API | `dsm_api.py apis <关键字>` |
 | 传脚本到 NAS、取日志回来 | `syno.py` 上传 / 下载 |
+| 查某个共享有没有开 NFS 导出 | `nas_nfs.py list --share <共享名>`（空数组 = 未导出） |
+| 给共享加 / 清 NFS 导出规则 | `nas_nfs.py set … --yes` / `revert --yes` |
+| 没装 NFS 客户端，想验证能不能挂 | `nfs3_client.py verify --host <NAS_IP> --export /volume2/<共享名>` |
+| 跑 NFS 的读/写/随机读基准 | `nfs3_client.py read-sweep` / `write-sweep` / `randread-sweep` |
+| 有人说「NAS 慢」，先定位瓶颈在哪 | `nas_nic_sample.py` + `references/perf-and-network.md` |
+| 该选 NFS 还是 SMB | `references/nfs-service.md` 第六节对照表 |
 | 看看有没有新版本 | `check_update.py` |
 | 给 NAS 做性能压测 / VDI 容量评估 / 排查读吞吐瓶颈 | `references/vdi-nas-perf-test.md`（fio/DiskSpd 口径 + SMB/静态路由调优 + 踩坑） |
 | 群晖作 AD 域控：查域用户/组/密码策略 | `nas_exec.py "samba-tool user list"`（只读；samba-tool 在 `/usr/local/bin/`） |
@@ -181,14 +228,18 @@ agent-browser close                              # 收尾必做：会话等同�
 | 目录 ACL 细粒度控制（谁能建目录、谁能删） | `references/synoacltool-acl.md`（权限位映射 + 四大怪癖） |
 | 提交实测记录 / 求助 | 见下方「反馈与回传」两个收集表 |
 
-### 7. 排错
+### 8. 排错
 
 - 局域网发现一台都找不到 → 同广播域？ / 本机 Assistant 占着 UDP 9999？ /
   设备还没装 DSM（裸机不回应 findhostd，只回应 SSDP）？
 - SSH 连不上 → 返回 255，检查：SSH 是否启用、端口、账号是否在 administrators 组
 - `sudo -i` 提不了权 → `NAS_USER` 不是 root 且没设 `NAS_PASS`，或账号不在 administrators 组
+- 读 `/etc/exports` 报 Permission denied → 权限边界，正常的；套 `sudo` 再看
 - DSM 登录失败 → 脚本会按错误码给下一步建议（400 查凭据 / 401 账号被禁 / 403 锁定或 OTP）
 - API 报 102 → API 名写错或该 DSM 没注册，不是权限问题，去 `dsm_api.py apis` 查注册表
+- API 报 2001 → 多半是「该用 POST + 全字段」的接口被写成了 GET / 少字段（如 `FileServ.SMB`）
+- NFS 客户端报 `MNT status=1` → 要么客户端不在导出规则里，要么**请求本身发错了**
+  （RPC 头缓存了 proc 是经典原因），见 `references/nfs-service.md`
 - 命令报 `0x0300 ACCESS DENIED` → 没提权，见 `references/error-codes.md`
 
 ## 版本发布
@@ -248,6 +299,8 @@ python3 scripts/first_run.py
 | `references/dsm-deployment-guide.md` | 新机开荒：官方部署指南要点（RAID/文件系统选型、安全加固清单、DSM 6.2→7 对照） |
 | `references/lan-discovery.md` | 局域网发现：findhostd 协议 + mDNS/SSDP，两个发现脚本 |
 | `references/browser-automation.md` | 浏览器通路：装 DSM、装套件、建 btrfs 卷、快照计划 API 契约 |
+| `references/nfs-service.md` | NFS 文件服务：导出规则读写、NFSv3 协议要点与实测坑、Windows 挂载、NFS vs SMB 取舍 |
+| `references/perf-and-network.md` | 性能与网络诊断：瓶颈三层定位、多网卡路由陷阱、页缓存 vs 持久化口径 |
 | `references/vdi-nas-perf-test.md` | VDI 性能压测与容量验证实测案例（fio/DiskSpd 口径 + SMB/静态路由调优 + 踩坑） |
 | `references/error-codes.md` | 错误码与排查套路 |
 | `references/ssh-and-troubleshooting.md` | SSH 连接与故障处理 |
@@ -260,6 +313,9 @@ python3 scripts/first_run.py
 | `scripts/dsm_api.py` | DSM Web API 客户端 |
 | `scripts/first_run.py` | 打印使用须知（免责声明 + 两个收集表入口） |
 | `scripts/syno.py` | FileStation 上传/下载/列目录（多文件、管道、不覆盖开关、失败不中断汇总） |
+| `scripts/nas_nfs.py` | 共享文件夹的 NFS 导出规则读写（默认只读；`set`/`revert` 需 `--yes`） |
+| `scripts/nfs3_client.py` | 纯 Python NFSv3 客户端：挂载验证 + 顺序读写 / 随机读 / 延迟基准（不需要管理员） |
+| `scripts/nas_nic_sample.py` | 在 NAS 上采样各网卡 RX/TX 速率，用于判定性能瓶颈在哪一侧（只读） |
 | `scripts/pack_skill.py` | 打包（full/delta）+ 凭据扫描，命中凭据 exit 4 |
 | `scripts/check_ci.py` | 校验 `.github/workflows/*.yml` 可解析（需 PyYAML，未装则跳过） |
 | `scripts/cos_upload.py` | COS 上传（ima 回传第二步） |

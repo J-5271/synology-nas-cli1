@@ -119,6 +119,58 @@ scripts/nas_exec.py 里的 flatten() 就是干这个的。
 写自动化脚本时别依赖 GNU timeout，macOS 默认没有。用脚本自身的超时参数
 （nas_exec.py --timeout）或 Python 的 subprocess.run(timeout=...)。
 
+### 9. 先确认「我现在是谁」，不要假设 SSH 用户就是 root
+
+DSM 7 上用 administrators 成员登录 SSH 后，**`whoami` 不是 root**：
+
+```bash
+whoami        # -> <管理员账号>
+id            # -> uid=1026(...) gid=100(users) groups=100(users),101(administrators)
+```
+
+后果（都是实测踩到的）：
+
+- 读 `/etc/exports`、`/proc/fs/nfsd/*` 等会 **Permission denied** —— 这是正常的权限边界，
+  不是服务没开。要看得套 `sudo`。
+- `df -h`、`ls /volumeX` 这类读操作通常没问题，但**写入系统目录会失败**。
+- UID 会直接决定 NFSv3 侧的身份（见 `references/nfs-service.md` 第三节），
+  所以**先 `id` 拿到真实 uid/gid，再拿去配置 NFS 客户端**，不要照抄文档里的示例数字。
+
+### 10. 脚本里喂 sudo 密码：用 `sudo -S`，并注意提示串会混进输出
+
+```bash
+echo "$NAS_PASS" | sudo -S cat /etc/exports
+```
+
+- `-S` 让 sudo 从 stdin 读密码。
+- 提示串 `Password: ` 会出现在 **stdout**（不是 stderr）里，解析输出前要把它剥掉。
+- 密码**不要出现在命令行参数里**（会进 `ps` 与 shell history），
+  走环境变量 + 管道：`printf '%s\n' "$NAS_PASS" | sudo -S ...`。
+
+### 11. Git Bash / MSYS 会自动改你的路径（Windows 上尤其坑）
+
+在 Git Bash（MSYS2 环境）里把类 Unix 路径当**普通参数**传给程序时，
+MSYS 会把它当路径做转换：
+
+```bash
+python3 nfs3_client.py --export /volume1/homes
+# 实际传进去的是 D:/.../PortableGit/volume1/homes  -> MNT 报 status=13
+```
+
+解决：**传参前**设环境变量（注意要 export，且必须在该条命令之前）：
+
+```bash
+export MSYS_NO_PATHCONV=1
+```
+
+同理，`ssh` 里 `docker cp`、`-v /a:/b` 这类冒号路径也可能被改写。
+PowerShell / CMD 没这个问题，只有 MSYS 系终端会。
+
+### 12. 相关但不在本文范围的两类坑
+
+- 共享文件夹的 NFS 导出有没有、怎么改 → `references/nfs-service.md`
+- 读慢/写慢到底卡在哪一侧、多网卡路由把带宽压在千兆 → `references/perf-and-network.md`
+
 ## 五、其它实用命令（非官方文档内容，设备上验证过再用于生产）
 
 Synology CLI 指南未收录但常用于 NAS 运维的命令，DSM 版本差异大，
@@ -157,3 +209,8 @@ ls /usr/syno/sbin/ | grep -i syno    # 本机实际有哪些 CLI 工具
   - 国内网络：registry-1.docker.io 直连不通（curl 000），`docker.m.daocloud.io`
     可用（401 为正常 auth challenge），直接 `docker pull
     docker.m.daocloud.io/<img>:<tag>` 后 `docker tag` 改名即可。
+
+- 2026-10-14 新增实测（RS6426xs+ / DSM 7.4.1-90080）：新增第 9–12 条 ——
+  「先 `whoami`/`id` 确认身份、不要假设 SSH 用户是 root」（读 `/etc/exports` 报
+  Permission denied 是权限边界不是服务没开）、`sudo -S` 喂密码与提示串污染 stdout、
+  Git Bash 的 `MSYS_NO_PATHCONV=1` 路径转换坑，以及指向 NFS / 性能诊断两份新参考的索引。

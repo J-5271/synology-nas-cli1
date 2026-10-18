@@ -1,6 +1,11 @@
 ---
 name: synology-nas-cli
-description: 通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理 Synology NAS（DSM）——查状态、列用户与共享文件夹、开关 SSH、执行只读巡检。涉及改配置或破坏性操作时受只读优先策略约束。当用户提到群晖 / Synology / NAS / DSM / synouser / synoshare / dsm_api 时使用。
+description: "通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理 Synology NAS（DSM）——查状态、列用户与共享文件夹、开关 SSH、局域网发现、NFS 文件服务与性能诊断、执行只读巡检。涉及改配置或破坏性操作时受只读优先策略约束。当用户提到群晖 / Synology / NAS / DSM / NFS / synouser / synoshare / dsm_api 时使用。"
+version: 1.2.0
+display_name: "群晖 NAS 管理助手"
+display_name_en: "Synology NAS CLI Manager"
+description_zh: "通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理群晖 Synology NAS（DSM）的实操技能包：查状态、列用户与共享文件夹、开关 SSH、局域网发现、DSM Web API 调用、文件传输、套件离线安装、域控 GPO 与 FSLogix 部署、synoacltool ACL 实战、NFS 文件服务与性能/网络诊断。默认只读优先，改配置/破坏性操作需显式确认，内置守卫防误执行。"
+description_en: "A practical skill pack for managing Synology NAS (DSM) via SSH (root/official CLI) or DSM Web API: status checks, user/share listing, SSH toggle, LAN discovery, Web API calls, file transfer, offline package install, AD domain GPO and FSLogix deployment, synoacltool ACL recipes, and NFS file service with performance/network diagnostics. Read-only by default; mutating or destructive ops require explicit confirmation and are guarded."
 agent_created: true
 ---
 
@@ -296,6 +301,33 @@ scripts/nas_exec.py "/usr/syno/sbin/synouser --help"       # 该版本真实语�
 内网 vs 外网：SSH 通常只在内网可达。公网域名上能连到 DSM 网页，
 不代表 SSH 端口也转发了——先 `nc -zv <host> <port>` 或直接跑脚本确认。
 连不上时先分清是 Connection refused（端口没转发）还是 No route to host / 超时。
+
+### 文件服务（NFS）与性能诊断（专项参考）
+
+两条**独立于上面几条通路**的专项能力，各自有完整参考文档 + 脚本：
+
+| 主题 | 参考 | 脚本 | 什么时候看 |
+|---|---|---|---|
+| **NFS 导出与挂载** | `references/nfs-service.md` | `scripts/nas_nfs.py`、`scripts/nfs3_client.py` | 要查/改共享的 NFS 导出、验证 NFS 能不能挂、排查 NFS 状态码、算 NFS 与 SMB 的取舍 |
+| **性能与网络诊断** | `references/perf-and-network.md` | `scripts/nas_nic_sample.py`、`scripts/nfs3_client.py` | 说「NAS 慢」，要判断瓶颈在客户端 / 链路 / 还是后端存储 |
+
+三条最值钱的结论，先记住：
+
+1. **`/etc/exports` 里没有某个共享 ≠ NFS 没开。** 权威判据是
+   `SYNO.Core.FileServ.NFS.SharePrivilege load share_name=<共享>` 返回的 `rule` 是不是空数组。
+   改规则只有 `load` / `save`，参数名是 **`rule`**（不是 rules），且**是整体覆盖**。
+2. **判瓶颈必须同时在 NAS 上采样 `/proc/net/dev`**（`nas_nic_sample.py`）。
+   只看客户端报的数字会把「客户端消费不动」误判成「NAS 慢」——
+   实测客户端 1044 MiB/s 的那次，NAS 实际发出了 1160 MiB/s。
+3. **多网卡 NAS 上，读可能被 NAS 的默认路由压回千兆口。**
+   症状是「写正常、读被压在 ~110 MiB/s 且延迟恒定、方差极小」。
+   用 `ip route get <客户端IP>` 一眼定性，必要时往 `static-table` 加一条路由
+   （**临时生效、重启即丢，且属改配置，必须先与用户确认**）。
+
+> ⚠️ **写性能一定要标口径。** SMB 写是「服务端页缓存收下就回执」，
+> NFS 写默认 `FILE_SYNC` 是「落盘才回执」，同一块盘上能差一倍以上，
+> 直接比大小是错的。NAS 本机 `dd` 三种写法（`oflag=direct` / `direct,dsync` / `conv=fsync`）
+> 能一眼看出页缓存与持久化的差距，详见 `references/perf-and-network.md` 第三节。
 
 ### 官方 CLI 工具速查
 
@@ -674,6 +706,12 @@ Download Station 0x08；官方示例用到 0x10（Surveillance Station）。凑�
 加 `-O` 大写 O：`scp -O -P <port> file.txt myadmin@<IP>:/volume1/homes/`
 - Could not chdir to home directory —— 用户主目录缺失/未启用 homes，不影响基本执行但会刷屏。
 - 改了 IP 后失联 —— 改网络前确认有无带外管理通道。
+- **先 `whoami` / `id` 确认自己是谁** —— DSM 7 上 SSH 登录的是 administrators 成员，
+  **不是 root**；读 `/etc/exports` 报 Permission denied 是权限边界，不是服务没开。
+- **Git Bash / MSYS 会偷改你的路径参数** —— 传 `/volume1/...` 会变成 Windows 路径，
+  传参前 `export MSYS_NO_PATHCONV=1`。
+- **写性能必须标口径** —— SMB 写是页缓存口径、NFS 写默认 `FILE_SYNC` 是持久化口径，
+  直接比大小会得出完全错误的结论（见 `references/perf-and-network.md`）。
 
 ### 版本差异提醒
 
@@ -681,12 +719,15 @@ Download Station 0x08；官方示例用到 0x10（Surveillance Station）。凑�
 一切以 references/ 之外、设备上的 --help 和官方知识库 https://kb.synology.cn/zh-cn/ 为准。
 遇到本技能没覆盖或不确定的，先查该知识库，不要凭记忆下命令。
 
-### 实测设备档案（DS918+ / DSM 7.3-81180）
+### 实测设备档案
 
-在 DSM 7.3-81180 / DS918+ 上实测得出的硬结论，碰 DSM 先看这段。
+在两台设备上实测得出的硬结论，碰 DSM 先看这两段。
+**档案只保留「型号 / 版本级」结论**；真实 IP、主机名、序列号、账号名一律占位。
 
-> ⚠️ **本仓库是公开仓库**。档案只保留「型号 / 版本级」结论。
-> 真实 IP、主机名、序列号、账号名、磁盘与网络拓扑**一律不入库**，用占位符代替。
+> ⚠️ **本仓库是公开仓库**。真实 IP、主机名、序列号、账号名、磁盘与网络拓扑
+> **一律不入库**，用占位符代替。
+
+#### 档案 A · DS918+ / DSM 7.3-81180
 
 | 项 | 值 |
 |---|---|
@@ -701,10 +742,30 @@ Download Station 0x08；官方示例用到 0x10（Surveillance Station）。凑�
 | 磁盘 | 多 volume，型号无关；现场看 `df -h` |
 | 网络 | SSH 建议只放通内网 `<内网网段>`；公网端口按现场防火墙策略决定 |
 
+该机上的额外校正：`/usr/syno/sbin/` 下**没有 `synoservice`**（synouser / synogroup /
+synoshare / synonet / synowin 都在），服务管理走 systemd。
+
+#### 档案 B · RS6426xs+ / DSM 7.4.1-90080
+
+| 项 | 值 |
+|---|---|
+| 型号 / 序列号 | RS6426xs+ / `<序列号>` |
+| DSM | 7.4.1-90080 |
+| 账号 | `<管理员账号>`（`administrators` 组），UID 1026 / GID 100(users) —— **SSH 登录后不是 root，要 sudo** |
+| 内存 | 15 GB 级（`free -m` 现场看） |
+| 存储 | 多卷（SSD 卷 + HDD 卷各一），`df -h` 可见 `/volume1` `/volume2` |
+| 网络 | **多网卡**（千兆 + 万兆），存在「默认路由只挂管理口、把读压到千兆」的坑，见 `references/perf-and-network.md` |
+| 文件服务 | SMB + NFSv3（`enable_nfs_v4=false`）；nfsd 线程数 128，rsize/wsize 上限 1 MiB |
+| 已实测 | NFS 导出管理、NFS/SMB 读写基准、多网卡路由修正、写语义（`FILE_SYNC` vs `UNSTABLE`） |
+
 > 使用本技能前，把自己的设备信息填进上面的占位符即可；**填的时候别提交**。
 
 > 维护记录：2026-09-27 周度巡检 —— 本周未产生新的 SSH / DSM Web API 实测记录，
 > 无新增实测设备，上表不变。
+>
+> 2026-10-14 —— 新增**档案 B（RS6426xs+ / DSM 7.4.1-90080）**：该机是「多网卡 + SSD/HDD 双卷 + NFS/SMB 双协议」
+> 的形态，NFS 与性能诊断两轮实测都在它上面完成，结论已分拆到
+> `references/nfs-service.md` 与 `references/perf-and-network.md`。
 
 ### 交付/汇报
 
