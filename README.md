@@ -30,16 +30,24 @@ GitHub 公开仓库 <https://github.com/J-5271/synology-nas-cli1> 是**只读分
 | **AD 域控管理** | `nas_exec.py`（samba-tool / LDAPS） | 装了 Directory Server，LDAPS(636) 可达 | 域用户/组/密码策略查询；GPO 需 LDAP + SYSVOL 直改（域控无 ADWS） | VDI 加域、FSLogix ODFC、GPO 排查 |
 | **浏览器自动化** | `agent-browser`（外部工具） | 能访问 DSM 网页 | GUI 才能干的事：装 DSM、装套件、建共享文件夹、绕过磁盘兼容检查 | 新机开荒、套件装不上 |
 
-### 两条专项能力（NFS · 性能诊断）
+### 专项能力（NFS · 性能诊断 · 升级与批量整理 · Drive）
 
-不属于「通路」，是两类**能独立查、能独立测**的能力，各有完整参考文档：
+不属于「通路」，是几类**能独立查、能独立测**的能力，各有完整参考文档：
 
 | 主题 | 脚本 | 一句话 |
 |---|---|---|
 | **NFS 导出与挂载** | `nas_nfs.py` / `nfs3_client.py` | 查改共享的 NFS 导出规则；没装 NFS 客户端也能验证能不能挂、跑读写基准 |
 | **性能与网络诊断** | `nas_nic_sample.py` / `nfs3_client.py` | 在 NAS 侧采样网卡速率，判定「慢」到底是客户端、链路还是后端存储的问题 |
+| **DSM 升级与套件批量升级** | 复用 `nas_exec.py` / `dsm_api.py` | 走官方通道下载安装包、`--start-force` 安装、重启后收尾与套件盘点 |
+| **批量文件整理** | 复用 `nas_exec.py` | 数万文件改名归集隔离：WAL 先行、跨子卷 copy+unlink、干跑必做 |
+| **Drive 客户端与上传后删本地** | 无（取证走 `dsm_api.py`） | 自证任务方向性、FileStation 逐文件校验、三阶段安全删除 |
 
-参考：`references/nfs-service.md`、`references/perf-and-network.md`。
+参考：`references/nfs-service.md`、`references/perf-and-network.md`、
+`references/dsm-upgrade.md`、`references/bulk-file-rename.md`、
+`references/drive-client-and-retention.md`。
+
+> ⚠️ **两条写操作能力**（DSM 升级 / 批量文件整理）都可能不可逆地改动设备或数据：
+> 升级会重启 NAS，批量改名会动数万文件。动手前先备份、先干跑、先小批量验证。
 
 ### 设计取舍（为什么值得用）
 
@@ -226,6 +234,12 @@ python3 scripts/nas_nic_sample.py --ifaces eth0,eth2 --seconds 15
 | 建 GPO / 改 GPO（群晖域控无 ADWS，GPMC 不可用） | `references/synology-gpo.md`（LDAP + SYSVOL 直改完整清单） |
 | VDI 用户数据上 NAS：FSLogix ODFC 容器 / OST 重定向 | `references/fslogix-odfc.md`（共享 ACL + 注册表 10 值 + 验证） |
 | 目录 ACL 细粒度控制（谁能建目录、谁能删） | `references/synoacltool-acl.md`（权限位映射 + 四大怪癖） |
+| 要把 DSM 升到新版本 / 批量升套件 | `references/dsm-upgrade.md`（官方通道下载 + `--start-force` + 重启收尾） |
+| 升级后容器全停了 / 套件版本对不上 | 同上（`docker start` 逐个拉、套件重新盘点） |
+| 数万文件按规则改名、归集到一个目录 | `references/bulk-file-rename.md`（WAL 先行 + 干跑 + 冲突跳过） |
+| 清理无效文件 / 隔离残片、缩略图 | 同上（隔离区保留原路径，可整体回退） |
+| 用 Drive 传上 NAS 后想删本地 | `references/drive-client-and-retention.md`（先自证方向性，再按校验结果删） |
+| 要删 / 改建 Drive 同步任务 | 同上（第三节：勾「同时删除本地文件」会清空源目录） |
 | 提交实测记录 / 求助 | 见下方「反馈与回传」两个收集表 |
 
 ### 8. 排错
@@ -307,6 +321,9 @@ python3 scripts/first_run.py
 | `references/synoacltool-acl.md` | synoacltool ACL 实战：权限位映射、模板、四大怪癖、FSLogix 案例 |
 | `references/synology-gpo.md` | 群晖域控 GPO 管理：无 ADWS 时的 LDAP + SYSVOL 直改方案 |
 | `references/fslogix-odfc.md` | FSLogix ODFC 容器部署（群晖）：共享 ACL、注册表配置、验证 |
+| `references/dsm-upgrade.md` | DSM 固件升级 + 套件批量升级：官方通道下载、`--start-force`、重启收尾、盘点三坑 |
+| `references/bulk-file-rename.md` | 批量文件改名 / 归集 / 隔离：WAL 先行、跨子卷 EXDEV、干跑与冲突保护 |
+| `references/drive-client-and-retention.md` | Drive 客户端落点、同步 vs 备份方向性、FileStation 取证、安全删除七件套 |
 | `scripts/syno_findhost.py` | Synology Assistant 同款发现协议客户端（findhostd，只读） |
 | `scripts/discover_nas.py` | 局域网 NAS 发现（mDNS + SSDP + HTTP 指纹；端口探测默认关闭） |
 | `scripts/nas_exec.py` | SSH 执行器，内置只读/改配置守卫 |

@@ -1,11 +1,11 @@
 ---
 name: synology-nas-cli
-description: "通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理 Synology NAS（DSM）——查状态、列用户与共享文件夹、开关 SSH、局域网发现、NFS 文件服务与性能诊断、执行只读巡检。涉及改配置或破坏性操作时受只读优先策略约束。当用户提到群晖 / Synology / NAS / DSM / NFS / synouser / synoshare / dsm_api 时使用。"
-version: 1.2.0
+description: "通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理 Synology NAS（DSM）——查状态、列用户与共享文件夹、开关 SSH、局域网发现、NFS 文件服务与性能诊断、Drive 客户端运维、执行只读巡检。涉及改配置或破坏性操作时受只读优先策略约束。当用户提到群晖 / Synology / NAS / DSM / NFS / synouser / synoshare / dsm_api 时使用。"
+version: 1.3.0
 display_name: "群晖 NAS 管理助手"
 display_name_en: "Synology NAS CLI Manager"
-description_zh: "通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理群晖 Synology NAS（DSM）的实操技能包：查状态、列用户与共享文件夹、开关 SSH、局域网发现、DSM Web API 调用、文件传输、套件离线安装、域控 GPO 与 FSLogix 部署、synoacltool ACL 实战、NFS 文件服务与性能/网络诊断。默认只读优先，改配置/破坏性操作需显式确认，内置守卫防误执行。"
-description_en: "A practical skill pack for managing Synology NAS (DSM) via SSH (root/official CLI) or DSM Web API: status checks, user/share listing, SSH toggle, LAN discovery, Web API calls, file transfer, offline package install, AD domain GPO and FSLogix deployment, synoacltool ACL recipes, and NFS file service with performance/network diagnostics. Read-only by default; mutating or destructive ops require explicit confirmation and are guarded."
+description_zh: "通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理群晖 Synology NAS（DSM）的实操技能包：查状态、列用户与共享文件夹、开关 SSH、局域网发现、DSM Web API 调用、文件传输、套件离线安装、DSM 系统升级与套件批量升级、批量文件改名归集隔离、域控 GPO 与 FSLogix 部署、synoacltool ACL 实战、NFS 文件服务与性能/网络诊断、Drive 客户端运维。默认只读优先，改配置/破坏性操作需显式确认，内置守卫防误执行。"
+description_en: "A practical skill pack for managing Synology NAS (DSM) via SSH (root/official CLI) or DSM Web API: status checks, user/share listing, SSH toggle, LAN discovery, Web API calls, file transfer, offline package install, DSM firmware upgrade and bulk package upgrade, bulk file rename/collect/quarantine, AD domain GPO and FSLogix deployment, synoacltool ACL recipes, NFS file service with performance/network diagnostics, and Synology Drive client retention. Read-only by default; mutating or destructive ops require explicit confirmation and are guarded."
 agent_created: true
 ---
 
@@ -232,6 +232,60 @@ python3 scripts/install_packages.py setup \
   只能进套件 UI 手动建计划；共享文件夹建在部分机型仍可能 403，回退浏览器路线。
 - 完整坑位与字段契约见 `references/package-install.md`。
 
+#### 系统升级与套件批量升级（写操作，需二次确认）
+
+**DSM 固件升级**与**批量套件升级**是两条独立能力，细节见
+`references/dsm-upgrade.md`（2026-10-24 实测：DSM 7.2.1-69057 U13 → 7.4.1-90080 U1，
+跨大版本全量安装，405 MB 官方包）。
+
+四条最值钱的结论，先记住：
+
+1. **升级包直链在官网前端不暴露** —— 自己拼的 URL 全是 404。唯一可靠入口是让 DSM 自己下：
+   `SYNO.Core.Upgrade.Server.Download.start`（**空参数**，传多余参数报 error 101），
+   落到 `/volume1/@autoupdate/`。
+2. **别用 `synoupgrade --patch`，用 `--start-force`。** `--patch` 走 local_upload 分支，
+   随后 `SYNO.Core.Upgrade.start` 报 **5209「patch is not ready」**，
+   **还会连带删掉整个 `@autoupdate` 目录**（已下载的包一起没）。
+   正确路径：重新 `Download.start` 下载 → `synoupgrade --start-force`
+   （4 个 stage 全 success）→ `SYNO.Core.System` `method=reboot`。
+3. **DSM 7.4 已移除 `synosystemctl` 二进制** —— `synosystemctl reboot` 报
+   `No such file or directory`（看着像没权限，其实是文件没了）。用 Web API reboot。
+   重启判据要用「**先断后通**」：DSM 的 5000 端口在重启流程里仍会连上好几分钟。
+4. **升级后 Docker 容器不会自动拉起** —— `unless-stopped` 不覆盖「daemon 整体重启」场景，
+   实测几个容器全停在 Exited，要逐个 `docker start`。
+   另：`docker` 不在 PATH，用 `/var/packages/ContainerManager/target/usr/bin/docker`。
+
+**套件批量盘点**的三个坑：
+
+- `synopkg checkupdateall` / `checkupdate` 在本机**返回空，不可用**；
+- `synopkg show` 的 `qupgrade` 字段**对同版本包也返回 true**（实测 54 个「可升级」全是假的），
+  必须自己比版本号；
+- 包 id 用 `ls /var/packages`（`synopkg list | cut -d: -f1` 拿到的是「名字-版本」）。
+
+另：DSM 跨大版本升级时会**自动**把一批套件升到新版本兼容版
+（如 HyperBackup→4.2.2、SynologyDrive→4.0.3、SnapshotReplication→7.5.1），
+升级后要重新做一遍盘点，别以为是自己装的。
+
+#### 批量文件整理（改名 / 归集 / 隔离，破坏性操作）
+
+要把散落在几十个目录的数万文件按规则重命名归集时，看
+`references/bulk-file-rename.md`。四条最值钱的结论：
+
+1. **WAL 先行** —— 破坏性批量改名，日志必须**先于文件落盘**且 `fsync`。
+   实测反面教材：17124 条全部改完，最后统一写 CSV 时崩溃，**明细全丢**，
+   而 btrfs 没开快照 → 原名不可恢复。崩了能补救的只有三条路：
+   隔离区路径反推 / 归集 manifest 反查 / 现状清单重算（兜底）。
+2. **跨 btrfs 子卷 rename 必报 EXDEV** —— 同一物理卷上不同「共享文件夹」是不同子卷
+   （`stat` 的 `st_dev` 不同即跨卷），rename 要用 **copy + unlink**；
+   `shutil.move` 会**静默降级**成复制，不报错但极慢。
+3. **SMB 客户端改名会 Permission denied，NAS 端 root 可以** —— 普通用户对源文件
+   无删除权（实测 151 成功 / 198 失败）→ 改走 NAS 端 root `mv` 后 198 个全成。
+   附 NAS 后台进程活不过 SSH 会话的两种可靠写法。
+4. **干跑必做** —— 规则写完先 dry-run 逐条看。实测靠干跑抓到三个规则回退
+   （正则尾部断言误伤编号、标签表误收编号前缀、日期被分隔符拆开）。
+   另：分集符里不要放 `~`（会毁掉片名），括号内纯序号要保留在尾部。
+   隔离区统计别 skip `@eaDir`（实测 715 vs 实际 17974）。
+
 #### AD 域控管理通路（Directory Server，Samba AD DC）
 
 NAS 装了 Directory Server 套件作域控时走这条。**核心限制：群晖域控不运行
@@ -302,14 +356,17 @@ scripts/nas_exec.py "/usr/syno/sbin/synouser --help"       # 该版本真实语�
 不代表 SSH 端口也转发了——先 `nc -zv <host> <port>` 或直接跑脚本确认。
 连不上时先分清是 Connection refused（端口没转发）还是 No route to host / 超时。
 
-### 文件服务（NFS）与性能诊断（专项参考）
+### 专项参考：NFS / 性能诊断 / 系统升级 / 批量文件整理 / Drive
 
-两条**独立于上面几条通路**的专项能力，各自有完整参考文档 + 脚本：
+几条**独立于上面几条通路**的专项能力，各自有完整参考文档（部分带脚本）：
 
 | 主题 | 参考 | 脚本 | 什么时候看 |
 |---|---|---|---|
 | **NFS 导出与挂载** | `references/nfs-service.md` | `scripts/nas_nfs.py`、`scripts/nfs3_client.py` | 要查/改共享的 NFS 导出、验证 NFS 能不能挂、排查 NFS 状态码、算 NFS 与 SMB 的取舍 |
 | **性能与网络诊断** | `references/perf-and-network.md` | `scripts/nas_nic_sample.py`、`scripts/nfs3_client.py` | 说「NAS 慢」，要判断瓶颈在客户端 / 链路 / 还是后端存储 |
+| **DSM 固件升级与套件批量升级** | `references/dsm-upgrade.md` | 复用 `scripts/nas_exec.py` / `scripts/dsm_api.py` | 要把 DSM 升到新版本、要批量升级套件、升级后容器起不来 |
+| **批量文件整理（改名 / 归集 / 隔离）** | `references/bulk-file-rename.md` | 复用 `scripts/nas_exec.py` | 数万文件按规则改名归集、跨子卷搬运、清理无效文件 |
+| **Drive 客户端运维与上传后删本地** | `references/drive-client-and-retention.md` | 无（纯运维参考，取证走 `scripts/dsm_api.py`） | 用 Drive 传完要删本地、要判断任务方向性、删任务前评估风险 |
 
 三条最值钱的结论，先记住：
 
@@ -552,7 +609,7 @@ RS6426xs+（双万兆）上的承载验证，含：
 | Release 下载页 | https://github.com/J-5271/synology-nas-cli1/releases |
 | 提交历史 | https://github.com/J-5271/synology-nas-cli1/commits/main |
 | 腾讯文档版本记录（**GitHub 不可达时的镜像**） | **https://docs.qq.com/aio/DQ05IdUxxR3ZtUndG** （《synology-nas-cli 版本更新记录》，file_id `CNHuLqGvmRwF`） |
-| 本地版本基线 | `VERSION` 文件（当前 `1.1.0`；**以 VERSION 文件为准**，本文其它数字过期时以此为准） |
+| 本地版本基线 | `VERSION` 文件（当前 `1.3.0`；**以 VERSION 文件为准**，本文其它数字过期时以此为准） |
 | 检查水位 | `.update_state.json`（`last_version` / `last_commit` / `last_checked`） |
 | 检查脚本 | `scripts/check_update.py`（纯标准库，只访问 api.github.com 公开只读接口） |
 
@@ -563,7 +620,7 @@ RS6426xs+（双万兆）上的承载验证，含：
 python scripts/check_update.py            # 人类可读：有无更新 + 主要更新内容
 python scripts/check_update.py --json     # 机器可读，供自动化消费
 python scripts/check_update.py --mark-seen   # 记录当前水位，下次从这里开始比
-python scripts/check_update.py --set-version 1.1.0   # 手动改本地版本基线
+python scripts/check_update.py --set-version 1.3.0   # 手动改本地版本基线
 ```
 
 退出码：`0` 有更新 / `3` 无更新 / `4` 查询失败（会打印腾讯文档镜像地址兜底）。
@@ -712,6 +769,16 @@ Download Station 0x08；官方示例用到 0x10（Surveillance Station）。凑�
   传参前 `export MSYS_NO_PATHCONV=1`。
 - **写性能必须标口径** —— SMB 写是页缓存口径、NFS 写默认 `FILE_SYNC` 是持久化口径，
   直接比大小会得出完全错误的结论（见 `references/perf-and-network.md`）。
+- **批量改名先写 WAL 再动文件** —— 破坏性批量操作，日志不先落盘就等于没有回退能力
+  （见 `references/bulk-file-rename.md`）。
+- **同一物理卷的不同共享文件夹是不同 btrfs 子卷** —— 跨目录 rename 报 EXDEV，
+  `shutil.move` 会静默降级成复制（见 `references/bulk-file-rename.md`）。
+- **DSM 升级包别自己拼直链** —— 官网不暴露，只能让 DSM 自己下；
+  `synoupgrade --patch` 会失败并删掉已下载的包，用 `--start-force`
+  （见 `references/dsm-upgrade.md`）。
+- **Drive 任务类型先自证方向性再传数据** —— 双向同步下本地删除会反删服务器副本；
+  删「同步任务」时勾了「同时删除本地文件」会立刻清空源目录
+  （见 `references/drive-client-and-retention.md`）。
 
 ### 版本差异提醒
 
@@ -758,6 +825,19 @@ synoshare / synonet / synowin 都在），服务管理走 systemd。
 | 文件服务 | SMB + NFSv3（`enable_nfs_v4=false`）；nfsd 线程数 128，rsize/wsize 上限 1 MiB |
 | 已实测 | NFS 导出管理、NFS/SMB 读写基准、多网卡路由修正、写语义（`FILE_SYNC` vs `UNSTABLE`） |
 
+#### 档案 C · DS423+ / DSM 7.4.1-90080
+
+| 项 | 值 |
+|---|---|
+| 型号 / 序列号 | DS423+ / `<序列号>` |
+| CPU / 内存 | Intel Celeron J4125 @2.0GHz（4 核）/ 6 GB |
+| DSM | 7.2.1-69057 U13 → **7.4.1-90080 U1**（2026-10-24 实测跨大版本升级） |
+| 平台 | `synology_geminilake_423+`（`/proc/sys/kernel/syno_hw_version`） |
+| 账号 | `<管理员账号>`（`administrators` 组），SSH 登录后需 `sudo` |
+| 存储 | btrfs；4 盘 RAID5 + NVMe RAID1 缓存 + 系统盘 RAID1；**多个共享文件夹是不同 btrfs 子卷** |
+| Docker | Container Manager 24.0.2；`docker` 不在 PATH，须用绝对路径 |
+| 已实测 | DSM 跨大版本升级（官方通道）、套件批量升级盘点、跨子卷批量文件搬运、SMB 权限受限改名、WAL 先行批量改名 |
+
 > 使用本技能前，把自己的设备信息填进上面的占位符即可；**填的时候别提交**。
 
 > 维护记录：2026-09-27 周度巡检 —— 本周未产生新的 SSH / DSM Web API 实测记录，
@@ -766,6 +846,10 @@ synoshare / synonet / synowin 都在），服务管理走 systemd。
 > 2026-10-14 —— 新增**档案 B（RS6426xs+ / DSM 7.4.1-90080）**：该机是「多网卡 + SSD/HDD 双卷 + NFS/SMB 双协议」
 > 的形态，NFS 与性能诊断两轮实测都在它上面完成，结论已分拆到
 > `references/nfs-service.md` 与 `references/perf-and-network.md`。
+>
+> 2026-10-24 —— 新增**档案 C（DS423+ / DSM 7.4.1-90080）**：该机完成了
+> 「DSM 7.2.1 → 7.4.1 跨大版本升级」与「数万文件批量改名归集」两轮实战，
+> 结论已落到 `references/dsm-upgrade.md` 与 `references/bulk-file-rename.md`。
 
 ### 交付/汇报
 

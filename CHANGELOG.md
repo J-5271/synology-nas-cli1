@@ -1,6 +1,107 @@
 # 版本记录（CHANGELOG）
 
-> **已于 2026-10-02 并入整包 v2026.09**（2026-09 全部周增量已合并进主干，本地 tag `v2026.09`）
+> **已于 2026-11-01 并入整包 v2026.10**（2026-10 全部周增量已合并进主干，本地 tag `v2026.10`）
+>
+> 上一轮整包：**2026-10-02 并入 v2026.09**（2026-09 全部周增量已合并进主干，本地 tag `v2026.09`）
+
+## 2026-10-24 · v1.3.0 DSM 升级 + 套件升级 + 批量文件整理
+
+> 素材来源：一次完整的「DSM 跨大版本升级（7.2.1-69057 U13 → 7.4.1-90080 U1）
+> + 套件批量升级 + 数万文件批量改名归集」实战。
+> 本次为**纯新增能力**（新增 2 篇 references + SKILL.md 扩充），语义化 minor。
+> 相对已发布的 v1.2.0 属新增能力，版本 1.2.0 → **1.3.0**。
+
+- **新增 `references/dsm-upgrade.md`** —— DSM 固件升级 + 套件批量升级全流程：
+  - **头号结论：官方升级包直链在官网前端不暴露**，自己拼的 URL 全 404。
+    唯一可靠入口是让 DSM 自己下：`SYNO.Core.Upgrade.Server.Download.start`
+    （**空参数**，传多余参数报 error 101），落到 `/volume1/@autoupdate/`。
+  - **`synoupgrade --patch` 是陷阱**：走 local_upload 分支后
+    `SYNO.Core.Upgrade.start` 报 **5209「patch is not ready」**，
+    **且失败回滚会连带删掉整个 `@autoupdate` 目录**（已下载的包一起丢）。
+    正确路径 = 重新 `Download.start` 下载 → `synoupgrade --start-force`
+    （verify-checksum / check-unique / run-updater-prehook / launch-updater 四 stage 全 success）
+    → `SYNO.Core.System` `method=reboot`。
+  - **DSM 7.4 已移除 `synosystemctl` 二进制** —— `synosystemctl reboot` 报
+    `No such file or directory`（看着像没权限，其实是文件没了），改用 Web API reboot。
+  - **重启判据要用「先断后通」** —— DSM 的 5000 端口在重启流程里仍会连上好几分钟，
+    只看「端口通不通」会误判成没重启。
+  - **升级后 Docker 容器不会自动拉起** —— `unless-stopped` 不覆盖「daemon 整体重启」场景，
+    实测多个容器停在 Exited，须逐个 `docker start`；
+    `docker` 不在 PATH，用 `/var/packages/ContainerManager/target/usr/bin/docker`。
+  - **升级前检查四件套**：阵列（`/proc/mdstat` 全 U + unused none）、
+    空间（`/` 留 600 MB+）、内存（available ≥ 1 GB + swap）、备份。
+    备份用**绝对路径**（`cd / && tar czf /volumeX/…/etc_full.tgz etc`），
+    相对路径会只打出几十字节空壳。
+  - **套件盘点三个坑**：`synopkg checkupdateall` / `checkupdate` 本机**返回空不可用**；
+    `synopkg show` 的 `qupgrade` **对同版本包也返回 true**（实测 54 个「可升级」全是假的），
+    必须自己比版本号；包 id 用 `ls /var/packages`
+    （`synopkg list | cut -d: -f1` 拿到的是「名字-版本」）。
+  - **DSM 跨大版本会自己升一批套件**（HyperBackup→4.2.2、SynologyDrive→4.0.3、
+    SnapshotReplication→7.5.1 等），升级后必须重新盘点，别以为是自己装的。
+  - 附 `synoupgrade` 可用选项全集、API 速查表、13 条排错速查表。
+- **新增 `references/bulk-file-rename.md`** —— 批量文件改名 / 归集 / 隔离方法论：
+  - **WAL 先行（硬规则）** —— 破坏性批量改名，日志必须**先于文件落盘**且 `fsync`。
+    实测反面教材：17124 条全部改完、最后统一写 CSV 时崩溃，**明细全丢**，
+    而 btrfs 没开快照 → 原名不可恢复。
+    崩溃后的三层补救：隔离区路径反推 / 归集 manifest 反查 / 现状清单重算（兜底）。
+  - **跨 btrfs 子卷 rename 必报 EXDEV** —— 同一物理卷上的不同「共享文件夹」
+    是不同子卷（`stat` 的 `st_dev` 不同即跨卷），rename 要 **copy + unlink**；
+    `shutil.move` 会**静默降级**成复制（不报错但极慢）。
+  - **SMB 客户端改名 Permission denied，NAS 端 root 可以** —— 普通用户对源文件无删除权
+    （实测 151 成功 / 198 失败）→ 改走 NAS 端 root `mv` 后 198 个全成。
+    附 NAS 后台进程活不过 SSH 会话的两种可靠写法（前台分批 / python3 脚本自循环）。
+  - **干跑必做** —— 实测靠 dry-run 抓到三个规则回退：
+    正则尾部断言误伤编号（`(?![\x20-])` → `(?![0-9])`）、
+    标签表误收编号前缀（`CRC`）、日期被分隔符拆开（需 token 占位保护）。
+    另：`~` 会毁掉片名；括号内纯序号要保留在尾部；隔离区统计别 skip `@eaDir`
+    （实测 715 vs 实际 17974）。
+  - **敏感内容分类只能用客观指征** —— 题材/风格标签不能当判据，
+    原则是**宁可漏判不可误判**。
+  - **判有效媒体要看文件头不看扩展名** —— MP4 `ftyp`+`moov` / MKV `1A45DFA3` / AVI `RIFF`。
+    某类假视频扩展名实测**并非都是空文件**（三类：全空 / 内容完整仅未改名 / 真未完成）。
+  - 附媒体库重扫的有效/无效接口清单（`/Library/Refresh` 204 有效，
+    `/Library/VirtualFolders/Refresh` 404 无效）。
+- `SKILL.md`：新增「系统升级与套件批量升级」「批量文件整理」两节；
+  专项能力表补 2 行；**实测设备档案新增档案 C（DS423+ / DSM 7.4.1-90080）**；
+  常见坑补 3 条；description / description_zh / description_en 同步更新。
+- **无新增脚本**：本次沉淀的全是「操作方法论与坑位」，脚本化收益不大，
+  沿用既有 `nas_exec.py` / `dsm_api.py` 即可。
+
+### 2026-10-26 追加 · v1.3.0 并入 Drive 客户端运维与上传后删本地
+
+> 素材来源：DS918+ / DSM 7.3-81180 + Windows 10 + Drive Client 8.0.3.17892 的实测，
+> 以及一次 P0 级数据清空事故复盘（2026-10-26）。仍属 v1.3.0（新增能力，不另起 minor）。
+
+- **新增 `references/drive-client-and-retention.md`** —— 从「Drive 客户端在哪」到
+  「删除只由服务器侧内容实锤授权」的完整链路：
+  - **客户端落点三个反直觉**：装在 `%LOCALAPPDATA%\SynologyDrive\SynologyDrive.app\bin`
+    （不在 Program Files）；进程名是 `cloud-drive-*`（按 `synology*` 查一定漏判）；
+    日志在 `log\daemon.log`（不是 `data\logs\`）；版本只能读卸载注册表 `DisplayVersion`。
+  - **同步 vs 备份必须先自证方向性**：`sys.sqlite` 的 `session_table` 里看
+    `session_type` / `sync_direction` / `ignore_local_remove`（只读要用 `immutable=1`）。
+    双向同步下本地删除会**反删服务器副本**。
+  - **⚠️ 删「同步任务」本身是破坏性动作** —— 向导里勾「同时删除本地文件」，
+    `recycle-cleaner` 立即无条件清空源目录；实测 1 分钟内 8 个文件 / 1.21 GB 归零，
+    而备份任务只以 `[INFO]` 级 `(vanish)` 静默跳过，唯一异常迹象是上传计数为 0。
+  - **FileStation 取证契约**：`additional` 必须是 JSON 数组、`checksum` 不在 List 选项里、
+    `size` 可能是字符串、时间读 `additional.time.mtime`；MD5 走独立的
+    `SYNO.FileStation.MD5`（`start` → `status` 两段式）。
+  - **Drive API 不能做逐文件校验**（`Files.list` 报 1000、`Node.list` 忽略 `path`），
+    逐文件取证只能走 FileStation 或 SSH；两条通道的路径视角也不同（共享文件夹 vs 卷路径）。
+  - **安全删除七件套**：`verified_at → staged_at → purged_at` 三阶段状态机、
+    `verified_at` 计时起点与重置规则（指纹用 `mtime_ns`，只比 MD5 会漏掉 A→B→A）、
+    删除前 TOCTOU 双端复检、purge 前 realpath 白名单、暂存同名追加后缀、
+    dry-run 默认、空落地守卫用「合格候选数」做前置条件。
+- `references/error-codes.md`：新增「FileStation Web API 错误码」一节 ——
+  `400` 多为负载型偶发（判据：同账号同路径结果是否不一致）、
+  `599` 是 MD5 任务已丢失（重发 `start` 拿新 taskid，重试同一 taskid 无效）。
+- `SKILL.md`：专项参考表扩为 NFS / 性能诊断 / 系统升级 / 批量整理 / Drive 五类
+  （补 Drive 一行）；常见坑补 Drive 一条；版本基线文案 `1.1.0` → `1.3.0`；
+  frontmatter `version` 1.2.0 → 1.3.0，三条 description 同步追加「Drive 客户端运维」。
+- `README.md`：场景速查补 6 行（升级 / 批量整理 / Drive 各 2 行）；参考文档目录表补 3 行。
+- `scripts/pack_skill.py`：`DOC_ORDER` 补入 `dsm-upgrade.md`、`bulk-file-rename.md`、
+  `drive-client-and-retention.md`、`vdi-nas-perf-test.md`，修正包内文档顺序。
+- `VERSION`：1.2.0 → **1.3.0**。
 
 ## 2026-10-14 · v1.2.0 NFS 文件服务 + 性能与网络诊断（并合入上游 v1.1.0）
 
