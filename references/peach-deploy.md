@@ -214,3 +214,67 @@ docker rm -f peach
 
 > 风险提示：桌面安装包未签名，macOS 版未公证；项目仅 6 名贡献者、100+ 开放 issue。
 > 自建部署要定期备份 `/data`，不要把它当唯一副本。
+
+---
+
+## 七、没有浏览器时怎么配置（API 实做，2026-11-03 验证）
+
+Peach 0.50.0 的页面配置背后是三个接口。远程 SSH 场景（或要写进自动化）时可以直接打，
+**但必须从 NAS 本机发请求**——`local_only()` 只认本地/私网来源，从别的机器打会 403
+「请在运行 Peach 的电脑上打开配置」。
+
+```bash
+B=http://127.0.0.1:8900
+O="-H Origin:$B -H Referer:$B/"      # 少了这个会被 same_origin 拦掉
+TOK=$(docker exec peach cat /data/secrets/auth-token | tr -d '\n')
+
+# 1) 登录，拿 peach_session cookie（登录前口令就是 auth-token）
+curl -s -c /tmp/jar -o /dev/null -X POST $B/login $O -d "token=$TOK&next=/&days=0"
+
+# 2) 读当前配置：revision 是 config.toml 的 sha256，改配置必须带上
+curl -s -b /tmp/jar $O -o /tmp/cfg.json $B/api/configuration
+REV=$(sed -n 's/.*"revision":"\([a-f0-9]\{16,\}\)".*/\1/p' /tmp/cfg.json | head -1)
+
+# 3) 加媒体库：一行一个目录，library 是界面显示名（不填就取目录名）
+printf '{"revision":"%s","port":8900,"media_sources":[{"location":"local","path":"/media","library":"AV"}]}' "$REV" > /tmp/b.json
+curl -s -b /tmp/jar $O -X POST $B/api/configuration \
+     -H 'Content-Type: application/json' --data-binary @/tmp/b.json
+
+# 4) 设访问密码（revision 这里是「访问设置」自己的修订号，首次是字符串 legacy）
+printf '{"action":"set","password":"********","confirmation":"********","current_password":"","revision":"legacy"}' > /tmp/pw.json
+curl -s -b /tmp/jar $O -X POST $B/api/configuration/access \
+     -H 'Content-Type: application/json' --data-binary @/tmp/pw.json
+```
+
+写完之后 `config.toml` 会长出这些（可以拿来自查）：
+
+```toml
+[media.locations]
+local = 'R:\peach\local\3ec4aaa2fd976c9772dd5b462075fe44'   # 数据库路径前缀，自动生成
+[media.mounts]
+local = '/media'                                              # 实际读取目录
+[media.library_catalog.32f5199a-...]
+name = 'AV'
+[media.storage_roots.c4f7d9ec-...]
+root = 'R:\peach\local\3ec4aaa2...'
+location = 'local'
+library_id = '32f5199a-...'
+mount = '/media'
+```
+
+六个要留意的点：
+
+1. **`revision` 必须现取现用。** 它是 config.toml 的 sha256，只要文件被别人改过就对不上，
+   返回 `409 配置已变更，请刷新后再保存`。
+2. **`revision` 有两个**：配置的是 sha256，访问设置的是独立随机串（首次为 `legacy`）。
+   用错对象一样 409。
+3. **加了 `Origin` 才过 `same_origin`**，否则 403；同时请求要从本机发（`local_only`）。
+4. **设了密码，`auth-token` 立刻失去登录能力**（`access.verify` 在 password 模式下只比对 scrypt 派生值）。
+   实测：旧 token 登录回 401，新密码回 303。别再把 token 当口令发出去。
+5. **密码规则**：8–256 字符。改成 `disable` 要带 `confirm_disable: true`，且会顺带关掉公网隧道。
+6. **只改配置不等于有内容**：媒体库要真正罗列影片还得跑一次扫描（`peach scan local` 或在页面勾扫描）。
+   大库首次扫描很吃 CPU/IO，**不要在批量转码高峰跑**。
+
+> 想省事也可以完全走页面：登录后配置页 → 媒体目录填 `/media` → 保存；访问密码在「访问设置」里改。
+> 接口这条路的价值在于可脚本化、可远程（在同一台 NAS 上）复现。
+

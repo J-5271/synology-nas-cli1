@@ -72,6 +72,11 @@ Peach 的硬件转码是给播放用的实时 H.264/VAAPI，h265 流水线是批
     并把 `--group-add` 做成参数（默认 101）。
   - 镜像 `longmeidao/peach:0.50.0`（1.18 GB）经 `docker.1ms.run` 拉取成功；
     首次启动自动应用 49 个数据库迁移，`peach token` 正常出口令。
+  - **`peach-deploy.md` 新增第七节「没有浏览器时怎么配置（API 实做）」**：登录拿
+    `peach_session`、用 `revision`（config.toml 的 sha256）防并发改、`media_sources`
+    加媒体库、`/api/configuration/access` 设密码的完整 curl 流程，外加六个坑
+    （revision 有两个别混、必须带 `Origin` 且从本机发、**设密码后 auth-token 立即失效**、
+    改配置 ≠ 有内容还得扫描、大库别在转码高峰扫）。
 
 ## 2026-10-24 · v1.3.0 DSM 升级 + 套件升级 + 批量文件整理
 
