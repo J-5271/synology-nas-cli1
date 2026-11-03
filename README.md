@@ -241,7 +241,7 @@ python3 scripts/nas_nic_sample.py --ifaces eth0,eth2 --seconds 15
 | 用 Drive 传上 NAS 后想删本地 | `references/drive-client-and-retention.md`（先自证方向性，再按校验结果删） |
 | 要删 / 改建 Drive 同步任务 | 同上（第三节：勾「同时删除本地文件」会清空源目录） |
 | 在 NAS 上部署 Peach（蜜桃）媒体库 | `scripts/peach_deploy.sh` + `references/peach-deploy.md`（UID/GID 1000 覆盖、无 `latest` 标签、镜像源回退） |
-| 在 NAS / 本机批量把视频压成 h265 | `references/h265-transcode-pipeline.md`（QSV Q26 实测、三段校验、八个坑） |
+| 在 NAS / 本机批量把视频压成 h265 | `references/h265-transcode-pipeline.md`（QSV Q26 实测、三段校验、九个坑） |
 | 压完发现「体积没变小 / 原片没删掉 / 台账对不上」 | `scripts/h265_ledger_check.py`（以磁盘为准对账）+ 同文档第四节 |
 | 提交实测记录 / 求助 | 见下方「反馈与回传」两个收集表 |
 
@@ -328,7 +328,7 @@ python3 scripts/first_run.py
 | `references/bulk-file-rename.md` | 批量文件改名 / 归集 / 隔离：WAL 先行、跨子卷 EXDEV、干跑与冲突保护 |
 | `references/drive-client-and-retention.md` | Drive 客户端落点、同步 vs 备份方向性、FileStation 取证、安全删除七件套 |
 | `references/peach-deploy.md` | Peach（蜜桃）媒体库 Docker 部署：UID/GID 1000 覆盖、无 `latest` 标签、镜像源回退、路径三层概念、备份卸载 |
-| `references/h265-transcode-pipeline.md` | h265 批量转码流水线：QSV Q26 选型实测、分工原则、三段校验、八个必踩的坑 |
+| `references/h265-transcode-pipeline.md` | h265 批量转码流水线：QSV Q26 选型实测、分工原则、三段校验、九个必踩的坑 |
 | `scripts/syno_findhost.py` | Synology Assistant 同款发现协议客户端（findhostd，只读） |
 | `scripts/discover_nas.py` | 局域网 NAS 发现（mDNS + SSDP + HTTP 指纹；端口探测默认关闭） |
 | `scripts/nas_exec.py` | SSH 执行器，内置只读/改配置守卫 |

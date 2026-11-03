@@ -1,7 +1,7 @@
 ---
 name: synology-nas-cli
 description: "通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理 Synology NAS（DSM）——查状态、列用户与共享文件夹、开关 SSH、局域网发现、NFS 文件服务与性能诊断、Drive 客户端运维、DSM 升级与批量文件整理、Peach 媒体库部署与 h265 批量转码、执行只读巡检。涉及改配置或破坏性操作时受只读优先策略约束。当用户提到群晖 / Synology / NAS / DSM / NFS / synouser / synoshare / dsm_api / Peach / 转码 时使用。"
-version: 1.4.0
+version: 1.4.1
 display_name: "群晖 NAS 管理助手"
 display_name_en: "Synology NAS CLI Manager"
 description_zh: "通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理群晖 Synology NAS（DSM）的实操技能包：查状态、列用户与共享文件夹、开关 SSH、局域网发现、DSM Web API 调用、文件传输、套件离线安装、DSM 系统升级与套件批量升级、批量文件改名归集隔离、域控 GPO 与 FSLogix 部署、synoacltool ACL 实战、NFS 文件服务与性能/网络诊断、Drive 客户端运维、Peach 媒体库部署与 h265 批量转码流水线。默认只读优先，改配置/破坏性操作需显式确认，内置守卫防误执行。"
@@ -644,7 +644,7 @@ RS6426xs+（双万兆）上的承载验证，含：
 | Release 下载页 | https://github.com/J-5271/synology-nas-cli1/releases |
 | 提交历史 | https://github.com/J-5271/synology-nas-cli1/commits/main |
 | 腾讯文档版本记录（**GitHub 不可达时的镜像**） | **https://docs.qq.com/aio/DQ05IdUxxR3ZtUndG** （《synology-nas-cli 版本更新记录》，file_id `CNHuLqGvmRwF`） |
-| 本地版本基线 | `VERSION` 文件（当前 `1.4.0`；**以 VERSION 文件为准**，本文其它数字过期时以此为准） |
+| 本地版本基线 | `VERSION` 文件（当前 `1.4.1`；**以 VERSION 文件为准**，本文其它数字过期时以此为准） |
 | 检查水位 | `.update_state.json`（`last_version` / `last_commit` / `last_checked`） |
 | 检查脚本 | `scripts/check_update.py`（纯标准库，只访问 api.github.com 公开只读接口） |
 
@@ -655,7 +655,7 @@ RS6426xs+（双万兆）上的承载验证，含：
 python scripts/check_update.py            # 人类可读：有无更新 + 主要更新内容
 python scripts/check_update.py --json     # 机器可读，供自动化消费
 python scripts/check_update.py --mark-seen   # 记录当前水位，下次从这里开始比
-python scripts/check_update.py --set-version 1.4.0   # 手动改本地版本基线
+python scripts/check_update.py --set-version 1.4.1   # 手动改本地版本基线
 ```
 
 退出码：`0` 有更新 / `3` 无更新 / `4` 查询失败（会打印腾讯文档镜像地址兜底）。

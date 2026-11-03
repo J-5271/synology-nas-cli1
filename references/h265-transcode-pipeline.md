@@ -61,7 +61,7 @@ src_size * 0.02 < new_size < src_size
 
 ---
 
-## 四、八个必踩的坑（都踩过）
+## 四、九个必踩的坑（都踩过）
 
 ### 1. ffmpeg 吞掉 stdin，队列每轮只跑 1 个
 `while read f; do ffmpeg ...; done < list` 里，ffmpeg 会把列表文件剩下的内容读走。
@@ -123,12 +123,48 @@ assert not os.path.exists(src)
 
 ### 8. 重启看门狗把批次一起带走
 `Stop-Process` 打看门狗父进程时，子进程和它的 ffmpeg 会一起死，正在编的两部直接作废。
-**解法：子进程用 `Popen(creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)` 脱离进程组。**
+**第一版解法：子进程用 `Popen(creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)` 脱离进程组。**
 
 ```python
 flags = 0x00000008 | 0x00000200   # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
 p = subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT, creationflags=flags)
 ```
+
+> ⚠️ **但 2026-11-03 复现：这招在受管终端里不够。** 同一天第二次重启看门狗，
+> 批次和两个 ffmpeg 依旧一起消失，留下两个 `*.hevc.qsv-tmp.mkv` 半成品（2.0 GB + 1.6 GB）。
+> 原因是被管终端把整棵进程树放进 Windows **Job 对象**，`DETACHED_PROCESS`
+> 只脱离控制台/进程组，**脱不出 Job**，Job 关闭时照样全杀。
+>
+> **可靠做法是按顺序来：**
+> 1. 先看批次在不在跑（`qsv_transcode.py` 有没有进程），**在跑就别动看门狗**；
+> 2. 非要重启，就等当前批次自然结束（`run_batch` 返回之后再重启）；
+> 3. 真被中断了，收尾只有两件事：**扫一遍 `*.hevc.qsv-tmp.mkv` 搬进暂存区**，
+>    再跑一次台账对账（台账里那两条会停在「待转码」，重跑时会自己再做一次）。
+>
+> 想彻底免疫，得换个父进程：`schtasks /create` 建计划任务或用 `wmic process call create`
+> 把批次交给 Task Scheduler 持有，而不是让它挂在看门狗下面。
+
+### 9. 两台机器一起压同一批片，怎么分工不打架
+NAS 单线程约 2 小时/条，几百条排下来要一个多月。让本机并行分担时，
+**不要两家都从清单头开始**，否则迟早撞在同一部上，白烧两遍 CPU。
+
+可行做法是**双指针**：NAS 从头往后（它本来就是顺序读 `list_sel.txt`），
+本机把剩余清单**倒序**后从尾部往前做，两边对着走。
+
+前提是队列脚本对「已经开始/已经做完」的条目要能自己跳过，实测 `h265_queue.sh`
+这一版三条都覆盖到了：
+
+```bash
+[ ! -f "$src" ] && { printf 'MISS\t%s\n' "$rel" >> $LOG; continue; }   # 源已不在
+[ -f "$final" ] && [ "$(probe_vc "$final")" = hevc ] && { EXIST; continue; }  # 已有成品
+# 本机侧另有一层：handle() 见到同名 .mkv 是 hevc 直接返回「已转码」
+```
+
+再加一条保险：生成「本机可接清单」时，把 NAS 正在写的 `*.hevc.mkv` 临时文件也排除掉，
+这样连「正在被编的那一部」都不会被抢。
+
+> 一个容易犯的错：清单排序用 `{p: i for i, p in enumerate(set_of_paths)}`，
+> **遍历 set 的顺序是随机的**，等于没排序。要按文件里的行序建索引。
 
 ---
 
