@@ -394,10 +394,10 @@ Peach 的硬件转码是给**播放**用的实时 H.264/VAAPI，本节的 h265 �
 
 | 主题 | 参考 | 脚本 | 什么时候看 |
 |---|---|---|---|
-| **Peach（蜜桃）媒体库部署** | `references/peach-deploy.md` | `scripts/peach_deploy.sh` | 要在 NAS 上部署/升级/排错 Peach 容器，或要把它指向已有的媒体目录 |
+| **Peach（蜜桃）媒体库部署** | `references/peach-deploy.md` | `scripts/peach_deploy.sh`、`scripts/peach_pull.sh` | 要在 NAS 上部署/升级/排错 Peach 容器，或要把它指向已有的媒体目录 |
 | **h265 批量转码流水线** | `references/h265-transcode-pipeline.md` | `scripts/h265_qsv_transcode.py`、`scripts/h265_queue.sh`、`scripts/h265_ledger_check.py` | 要压片、要估算压缩比、要修「转完没变小 / 原片没删掉 / 台账对不上」 |
 
-四条最值钱的结论：
+五条最值钱的结论：
 
 1. **QSV 的 `-global_quality` ≠ x265 的 CRF，必须实测对齐。** 同一段 1080p 片源实测：
    `libx265 -crf 26` = 2481 kb/s / SSIM 0.9709 / **3.97 fps**；
@@ -415,6 +415,11 @@ Peach 的硬件转码是给**播放**用的实时 H.264/VAAPI，本节的 h265 �
 4. **ffmpeg 默认读 stdin，会吞掉 `while read ... done < LIST` 的列表。**
    症状是「队列明明 441 条，每轮只跑 1 条」。列表必须走 fd 3（`done 3< LIST` + `read -r x <&3`），
    且每条 ffmpeg 都加 `-nostdin`。
+5. **容器里跑媒体的服务，`--user` 之外还要 `--group-add 101`。**
+   DSM 共享文件夹 ACL 基本只授权 `group:administrators`（GID 101），而容器**不继承**
+   宿主机账号的属组，只带 `--user 1026:100` 时容器内 `ls /media` 一律 Permission denied——
+   但健康检查照样 200，很容易误判成"部署成功"。DSM 又没有 `setpriv`，只能在容器起来后
+   用 `docker exec -u 1026:100 <容器> ls /media` 实测。
 
 ### 官方 CLI 工具速查
 

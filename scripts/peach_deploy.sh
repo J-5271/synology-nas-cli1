@@ -2,17 +2,23 @@
 # Peach 媒体库一键部署（群晖 DSM 7.x / Docker）
 # 用法：
 #   ./peach_deploy.sh --media /volume1/学习资料/AV --data /volume2/peach-data \
-#                     --uid 1026 --gid 100 --port 8900 --image longmeidao/peach:0.50.0
+#                     --uid 1026 --gid 100 --group-add 101 --port 8900 \
+#                     --image longmeidao/peach:0.50.0
 # 说明：
 #   1) 官方只推版本号与 edge 标签，没有 latest，拉取前必须写清 tag
 #   2) 容器按 UID 1000 设计，DSM 没有这个账号，必须用 --user 覆盖成真实 uid
-#   3) 媒体只读挂载，/data 独立持久化目录
+#   3) **还要 --group-add 101**：ACL 授权给 group:administrators，容器不继承属组
+#   4) 媒体只读挂载，/data 独立持久化目录
 set -u
 
 MEDIA="/volume1/学习资料/AV"
 DATA="/volume2/peach-data"
 UID_N=1026
 GID_N=100
+# DSM 共享文件夹 ACL 通常只授权给 group:administrators（GID 101）。
+# 容器只带 --user 指定的那一个主组，**不会继承宿主机账号的属组**，
+# 所以必须额外 --group-add 101，否则容器内读 /media 一律 Permission denied。
+GROUP_ADD=101
 PORT=8900
 IMAGE="longmeidao/peach:0.50.0"
 NAME="peach"
@@ -23,6 +29,7 @@ while [ $# -gt 0 ]; do
     --data)  DATA="$2";  shift 2 ;;
     --uid)   UID_N="$2"; shift 2 ;;
     --gid)   GID_N="$2"; shift 2 ;;
+    --group-add) GROUP_ADD="$2"; shift 2 ;;
     --port)  PORT="$2";  shift 2 ;;
     --image) IMAGE="$2"; shift 2 ;;
     --name)  NAME="$2";  shift 2 ;;
@@ -51,15 +58,21 @@ fi
 
 # ---- 镜像是否存在 ----
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-  say "本地无该镜像，尝试拉取（Docker Hub 直连超时就换镜像源）"
-  docker pull "$IMAGE" || {
-    say "直连失败，尝试镜像源"
-    for m in docker.1ms.run docker.1panel.live hub.rat.dev dockerproxy.net; do
-      if docker pull "$m/$IMAGE" 2>/dev/null; then
-        docker tag "$m/$IMAGE" "$IMAGE" && break
-      fi
-    done
-  }
+  say "本地无该镜像，尝试拉取（国内直连 Docker Hub 基本必超时，直接按可用源逐个试）"
+  HERE=$(cd "$(dirname "$0")" && pwd)
+  if [ -x "$HERE/peach_pull.sh" ]; then
+    bash "$HERE/peach_pull.sh" --image "${IMAGE%:*}" --tag "${IMAGE##*:}" || \
+      die "镜像拉取失败（可用 scripts/peach_pull.sh 单独重试，支持断点续拉）"
+  else
+    docker pull "$IMAGE" || {
+      say "直连失败，尝试镜像源（2026-11 实测：1ms.run 可用 / xuanyuan 会限流 / daocloud 有白名单）"
+      for m in docker.1ms.run docker.xuanyuan.me docker.m.daocloud.io; do
+        if docker pull "$m/$IMAGE"; then
+          docker tag "$m/$IMAGE" "$IMAGE" && break
+        fi
+      done
+    }
+  fi
   docker image inspect "$IMAGE" >/dev/null 2>&1 || die "镜像拉取失败，请手动拉取后重跑"
 fi
 
@@ -68,26 +81,14 @@ say "准备数据目录"
 mkdir -p "$DATA" || die "创建 $DATA 失败"
 chown -R "$UID_N:$GID_N" "$DATA" || say "! chown 失败，若容器报不可写就手动处理"
 
-# ---- 权限自检：以目标 uid 读一次媒体 ----
-say "权限自检"
-if command -v setpriv >/dev/null 2>&1; then
-  if ! setpriv --reuid="$UID_N" --regid="$GID_N" --clear-groups \
-        ls "$MEDIA" >/dev/null 2>&1; then
-    echo "   !! uid $UID_N 无法读取 $MEDIA"
-    echo "   检查该目录 ACL：synoacltool -get \"$MEDIA\""
-    echo "   需要有一条对应用户或 administrators 组的 r-x 授权"
-  else
-    echo "   OK: uid $UID_N 可读 $MEDIA"
-  fi
-else
-  echo "   跳过（无 setpriv）"
-fi
-
 # ---- 起容器 ----
+# 注意：DSM 没有 setpriv，容器起来之前没法「以目标 uid 试读」。
+# 所以顺序是：先起 → 再用 docker exec 以同一身份实测一次 → 读到 Permission denied 就地报警。
 say "启动容器"
 docker run -d --name "$NAME" \
   --restart unless-stopped \
   --user "$UID_N:$GID_N" \
+  ${GROUP_ADD:+--group-add "$GROUP_ADD"} \
   -e HOME=/tmp \
   -p "$PORT:8900" \
   -v "$MEDIA":/media:ro \
@@ -97,6 +98,18 @@ docker run -d --name "$NAME" \
 sleep 8
 say "容器状态"
 docker ps --filter "name=$NAME" --format '{{.Names}}  {{.Status}}  {{.Ports}}'
+
+# ---- 权限自检：以容器运行身份实测读一次媒体 ----
+say "权限自检（容器内 uid $UID_N:gid $GID_N + 附加组 ${GROUP_ADD:-无}）"
+if docker exec -u "$UID_N:$GID_N" "$NAME" sh -c 'ls /media' >/dev/null 2>&1; then
+  say "   OK: 容器内可读 /media（$(docker exec -u "$UID_N:$GID_N" "$NAME" sh -c 'ls /media | wc -l' 2>/dev/null) 个条目）"
+else
+  echo "   !! 容器内读不到 /media"
+  echo "   1) 查目录 ACL：synoacltool -get \"$MEDIA\""
+  echo "      需要有一条 user:<uid> 或 group:administrators(GID 101) 的 r-x 授权"
+  echo "   2) 若授权是给 administrators 组的，容器必须加 --group-add 101"
+  echo "   3) 改完重建：docker rm -f $NAME 后重跑本脚本"
+fi
 
 say "最近日志"
 docker logs --tail 20 "$NAME" 2>&1

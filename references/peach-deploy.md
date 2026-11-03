@@ -11,15 +11,30 @@ Peach 是 **单用户、本地优先** 的个人媒体库：扫描目录 → 识
 
 ---
 
-## 一、先记住这五个坑
+## 一、先记住这六个坑
 
 | # | 坑 | 现象 | 解法 |
 |---|---|---|---|
 | 1 | **没有 `latest` 标签** | `docker pull longmeidao/peach` 报 manifest unknown | 官方只推**版本号**与 `edge`，必须写明 tag，如 `longmeidao/peach:0.50.0` |
 | 2 | **容器固定以 UID 1000 运行** | 扫得到目录但播放/抽帧失败，日志报权限 | DSM 没有 uid 1000，用 `--user <真实uid>:<gid>` 覆盖；DSM 上 `jie` 是 `1026:100` |
-| 3 | **媒体目录 ACL 不放行** | 同上 | 目标目录的 ACL 里必须有该用户或 `administrators` 组的 `r-x` 权限，用 `synoacltool -get` 核实 |
-| 4 | **把整个共享挂进去** | 转码临时目录、回收站被当成作品扫进库 | `/media` 只挂**具体媒体子目录**，不要挂共享根 |
-| 5 | **`/data` 不是独立卷** | 重建容器后整个库、观看记录、刮削结果全丢 | `/data` 必须挂持久目录，并 `chown` 到容器实际运行的 uid |
+| 3 | **`--user` 只管主组，不管属组**（最容易被漏掉） | 日志正常、健康检查 200，但容器内 `ls /media` 报 `Permission denied` | DSM 共享文件夹 ACL 通常只授权 `group:administrators`（**GID 101**），容器不会继承宿主机账号的属组，必须再加 **`--group-add 101`** |
+| 4 | **媒体目录 ACL 不放行** | 同上 | `synoacltool -get <目录>` 核实；要有 `user:<uid>` 或 `group:administrators` 的 `r-x` 一条 |
+| 5 | **把整个共享挂进去** | 转码临时目录、回收站被当成作品扫进库 | `/media` 只挂**具体媒体子目录**，不要挂共享根 |
+| 6 | **`/data` 不是独立卷** | 重建容器后整个库、观看记录、刮削结果全丢 | `/data` 必须挂持久目录，并 `chown` 到容器实际运行的 uid |
+
+坑 3 的完整证据链（DS423+ / DSM 7.4.1-90080 实测）：
+
+```
+id jie            → uid=1026(jie) gid=100(users) groups=100(users),101(administrators),65536(sese)
+synoacltool -get  → [7] group:administrators:allow:rwxpdDaARWc--:fd--
+docker run --user 1026:100 ...            → docker exec -u 1026:100 peach ls /media
+                                            ls: cannot open directory '/media': Permission denied
+docker run --user 1026:100 --group-add 101 → 正常，ls /media 输出 1118 个条目
+```
+
+> 顺带一个反直觉：**DSM 没有 `setpriv`**，所以没法在起容器之前「以目标 uid 试读」。
+> 正确顺序是「先起 → 再 `docker exec -u …` 实测」；也不要指望 `docker exec` 临时加组，
+> 属组必须在 `docker run` 时用 `--group-add` 固定下来。
 
 补充：镜像当前目标平台是 **linux/amd64**，ARM 机型（DS223 等）官方未验收。
 镜像内置健康检查 `/healthz?ready=1`。
@@ -87,24 +102,29 @@ UID_N=1026                        # jie
 GID_N=100                         # users
 
 # 1) 先把镜像搞下来（国内必看上一节；拉取中断可反复重跑，已完成的层会复用）
-scp scripts/peach_pull.sh root@<NAS>:/volume1/homes/<user>/ && \
-  ssh root@<NAS> "bash /volume1/homes/<user>/peach_pull.sh --image longmeidao/peach --tag 0.50.0"
-# 也可以直接用 skills 里的部署脚本，它内部会处理镜像缺失
-#   bash scripts/peach_deploy.sh --media /volume1/学习资料/AV --data /volume2/peach-data --uid 1026 --gid 100
+#    把 scripts/peach_pull.sh 传到 NAS 后执行；它自带连通性自检与多源重试
+bash /volume1/homes/<user>/peach_pull.sh --image longmeidao/peach --tag 0.50.0
+# 或者直接用部署脚本，它内部会调上面这个（只需管住路径与 uid/gid/组）
+#   bash scripts/peach_deploy.sh --media /volume1/学习资料/AV --data /volume2/peach-data \
+#        --uid 1026 --gid 100 --group-add 101
 
 # 2) 数据目录，属主必须是容器运行身份
 mkdir -p "$DATA"
 chown -R "$UID_N:$GID_N" "$DATA"
 
-# 3) 起容器（媒体只读挂载）
+# 3) 起容器（媒体只读挂载；--group-add 101 不能省）
 docker run -d --name "$NAME" \
   --restart unless-stopped \
   --user "$UID_N:$GID_N" \
+  --group-add 101 \
   -e HOME=/tmp \
   -p 8900:8900 \
   -v "$MEDIA":/media:ro \
   -v "$DATA":/data \
   "$IMG"
+
+# 3.1) 立刻验一次容器内能不能读媒体（DSM 没有 setpriv，只能起完再验）
+docker exec -u "$UID_N:$GID_N" "$NAME" sh -c 'ls /media | wc -l'
 
 # 4) 取登录口令（没有通用初始密码，每次全新数据卷都会随机生成）
 docker exec "$NAME" peach token
@@ -165,7 +185,7 @@ docker exec "$NAME" curl -fsS "http://127.0.0.1:8900/healthz?ready=1" && echo OK
 | 现象 | 排查 |
 |---|---|
 | 容器起了但浏览器打不开 | 先确认端口有没有映射到 `0.0.0.0`；再从 NAS 本机 `curl 127.0.0.1:8900` 验证 |
-| 能浏览但点播放失败 | 十有八九是 uid/ACL：`docker exec -u <uid> <name> ls /media` 看得到吗 |
+| 能浏览但点播放失败 / 扫不出影片 | 十有八九是容器读不到媒体：`docker exec -u <uid> <name> ls /media`，报 Permission denied 就补 `--group-add 101` 重建 |
 | 扫不出影片 | 目录没加进配置页，或 `[media.mounts]` 与挂载路径不一致 |
 | 抽帧/缩略图全黑 | 视频色深或编码超出 VAAPI 解码范围，属正常回退；配置页可改「抽帧解码方式」为软件 |
 | 升级镜像后库打不开 | 数据库有待执行的迁移，先备份 `/data` 再按官方 OPERATIONS 的迁移流程处理 |
