@@ -1,11 +1,11 @@
 ---
 name: synology-nas-cli
-description: "通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理 Synology NAS（DSM）——查状态、列用户与共享文件夹、开关 SSH、局域网发现、NFS 文件服务与性能诊断、Drive 客户端运维、执行只读巡检。涉及改配置或破坏性操作时受只读优先策略约束。当用户提到群晖 / Synology / NAS / DSM / NFS / synouser / synoshare / dsm_api 时使用。"
-version: 1.3.0
+description: "通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理 Synology NAS（DSM）——查状态、列用户与共享文件夹、开关 SSH、局域网发现、NFS 文件服务与性能诊断、Drive 客户端运维、DSM 升级与批量文件整理、Peach 媒体库部署与 h265 批量转码、执行只读巡检。涉及改配置或破坏性操作时受只读优先策略约束。当用户提到群晖 / Synology / NAS / DSM / NFS / synouser / synoshare / dsm_api / Peach / 转码 时使用。"
+version: 1.4.0
 display_name: "群晖 NAS 管理助手"
 display_name_en: "Synology NAS CLI Manager"
-description_zh: "通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理群晖 Synology NAS（DSM）的实操技能包：查状态、列用户与共享文件夹、开关 SSH、局域网发现、DSM Web API 调用、文件传输、套件离线安装、DSM 系统升级与套件批量升级、批量文件改名归集隔离、域控 GPO 与 FSLogix 部署、synoacltool ACL 实战、NFS 文件服务与性能/网络诊断、Drive 客户端运维。默认只读优先，改配置/破坏性操作需显式确认，内置守卫防误执行。"
-description_en: "A practical skill pack for managing Synology NAS (DSM) via SSH (root/official CLI) or DSM Web API: status checks, user/share listing, SSH toggle, LAN discovery, Web API calls, file transfer, offline package install, DSM firmware upgrade and bulk package upgrade, bulk file rename/collect/quarantine, AD domain GPO and FSLogix deployment, synoacltool ACL recipes, NFS file service with performance/network diagnostics, and Synology Drive client retention. Read-only by default; mutating or destructive ops require explicit confirmation and are guarded."
+description_zh: "通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理群晖 Synology NAS（DSM）的实操技能包：查状态、列用户与共享文件夹、开关 SSH、局域网发现、DSM Web API 调用、文件传输、套件离线安装、DSM 系统升级与套件批量升级、批量文件改名归集隔离、域控 GPO 与 FSLogix 部署、synoacltool ACL 实战、NFS 文件服务与性能/网络诊断、Drive 客户端运维、Peach 媒体库部署与 h265 批量转码流水线。默认只读优先，改配置/破坏性操作需显式确认，内置守卫防误执行。"
+description_en: "A practical skill pack for managing Synology NAS (DSM) via SSH (root/official CLI) or DSM Web API: status checks, user/share listing, SSH toggle, LAN discovery, Web API calls, file transfer, offline package install, DSM firmware upgrade and bulk package upgrade, bulk file rename/collect/quarantine, AD domain GPO and FSLogix deployment, synoacltool ACL recipes, NFS file service with performance/network diagnostics, Synology Drive client retention, Peach media library deployment, and a batch h265 transcoding pipeline. Read-only by default; mutating or destructive ops require explicit confirmation and are guarded."
 agent_created: true
 ---
 
@@ -386,6 +386,36 @@ scripts/nas_exec.py "/usr/syno/sbin/synouser --help"       # 该版本真实语�
 > 直接比大小是错的。NAS 本机 `dd` 三种写法（`oflag=direct` / `direct,dsync` / `conv=fsync`）
 > 能一眼看出页缓存与持久化的差距，详见 `references/perf-and-network.md` 第三节。
 
+### 专项参考：媒体服务与转码
+
+NAS 上跑「看片」和「压片」两条链路，各有完整参考 + 可执行脚本。两条链路**互不相干**：
+Peach 的硬件转码是给**播放**用的实时 H.264/VAAPI，本节的 h265 流水线是**批量离线**重编码，
+不要把两者的编码参数混用。
+
+| 主题 | 参考 | 脚本 | 什么时候看 |
+|---|---|---|---|
+| **Peach（蜜桃）媒体库部署** | `references/peach-deploy.md` | `scripts/peach_deploy.sh` | 要在 NAS 上部署/升级/排错 Peach 容器，或要把它指向已有的媒体目录 |
+| **h265 批量转码流水线** | `references/h265-transcode-pipeline.md` | `scripts/h265_qsv_transcode.py`、`scripts/h265_queue.sh`、`scripts/h265_ledger_check.py` | 要压片、要估算压缩比、要修「转完没变小 / 原片没删掉 / 台账对不上」 |
+
+四条最值钱的结论：
+
+1. **QSV 的 `-global_quality` ≠ x265 的 CRF，必须实测对齐。** 同一段 1080p 片源实测：
+   `libx265 -crf 26` = 2481 kb/s / SSIM 0.9709 / **3.97 fps**；
+   `hevc_qsv -global_quality 26` = 2536 kb/s / SSIM 0.9684 / **81 fps**。
+   Q 值再往下调一档（Q21）体积直接翻 2.2 倍，画质提升却看不出来。
+2. **国内 NAS 拉 Docker Hub 基本必挂，根因通常不是「镜像不存在」而是 DNS 被投毒。**
+   `nslookup hub.docker.com` 回 `31.13.x.x`（Meta 的段）就是被劫持；
+   `registry-1.docker.io` 直连 443 超时。可用源实测：
+   `docker.1ms.run`、`docker.xuanyuan.me`、`docker.m.daocloud.io`（daocloud 有仓库白名单，
+   未收录的镜像会报 `not in allowlist`）。**注意 v2 接口的 401 是正常的鉴权挑战，
+   不代表镜像不存在**——判断 tag 存不存在只能真拉一次。
+3. **删除原片这一步最容易「看起来成功、其实没删」。** 在 SMB 网络盘上，
+   被钩子重定向到回收站的删除会 **fail-closed 且不抛异常**；批量配额用完后还会静默跳过。
+   可靠做法是同卷 `os.replace()` 搬进暂存目录，搬完立刻 `exists()` 复核。
+4. **ffmpeg 默认读 stdin，会吞掉 `while read ... done < LIST` 的列表。**
+   症状是「队列明明 441 条，每轮只跑 1 条」。列表必须走 fd 3（`done 3< LIST` + `read -r x <&3`），
+   且每条 ffmpeg 都加 `-nostdin`。
+
 ### 官方 CLI 工具速查
 
 命令都在 /usr/syno/sbin/ 下，只有 root（super-user）能跑。
@@ -609,7 +639,7 @@ RS6426xs+（双万兆）上的承载验证，含：
 | Release 下载页 | https://github.com/J-5271/synology-nas-cli1/releases |
 | 提交历史 | https://github.com/J-5271/synology-nas-cli1/commits/main |
 | 腾讯文档版本记录（**GitHub 不可达时的镜像**） | **https://docs.qq.com/aio/DQ05IdUxxR3ZtUndG** （《synology-nas-cli 版本更新记录》，file_id `CNHuLqGvmRwF`） |
-| 本地版本基线 | `VERSION` 文件（当前 `1.3.0`；**以 VERSION 文件为准**，本文其它数字过期时以此为准） |
+| 本地版本基线 | `VERSION` 文件（当前 `1.4.0`；**以 VERSION 文件为准**，本文其它数字过期时以此为准） |
 | 检查水位 | `.update_state.json`（`last_version` / `last_commit` / `last_checked`） |
 | 检查脚本 | `scripts/check_update.py`（纯标准库，只访问 api.github.com 公开只读接口） |
 
@@ -620,7 +650,7 @@ RS6426xs+（双万兆）上的承载验证，含：
 python scripts/check_update.py            # 人类可读：有无更新 + 主要更新内容
 python scripts/check_update.py --json     # 机器可读，供自动化消费
 python scripts/check_update.py --mark-seen   # 记录当前水位，下次从这里开始比
-python scripts/check_update.py --set-version 1.3.0   # 手动改本地版本基线
+python scripts/check_update.py --set-version 1.4.0   # 手动改本地版本基线
 ```
 
 退出码：`0` 有更新 / `3` 无更新 / `4` 查询失败（会打印腾讯文档镜像地址兜底）。

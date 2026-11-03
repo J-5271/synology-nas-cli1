@@ -4,6 +4,65 @@
 >
 > 上一轮整包：**2026-10-02 并入 v2026.09**（2026-09 全部周增量已合并进主干，本地 tag `v2026.09`）
 
+## 2026-11-03 · v1.4.0 媒体服务：Peach 部署 + h265 批量转码流水线
+
+一次把「NAS 上看片」和「NAS / 本机压片」两条链路补齐。**两条链路互不相干**：
+Peach 的硬件转码是给播放用的实时 H.264/VAAPI，h265 流水线是批量离线重编码，参数不可混用。
+
+- **新增 `references/peach-deploy.md`** —— Peach（`peach-mitao/peach`，AGPL-3.0）Docker 部署运维参考。
+  以 DS423+ / DSM 7.4.1-90080 update1 实机 + 官方 `docs/DOCKER.md` 为准：
+  - **五个坑**：①Docker Hub 上**没有 `latest` 标签**，只有版本号（`0.50.0`）与 `edge`，
+    照教程写 `:latest` 必然 `manifest unknown`；②镜像**固定以 UID/GID 1000 运行**，
+    群晖默认没有 uid 1000 账号，必须 `--user <uid>:<gid>` 覆盖；③媒体目录经 ACL 控制时
+    要确认容器 uid 真有读权限；④**不要把整块共享根挂进 `/media`**（扫描器会去啃非媒体文件）；
+    ⑤`/data` 必须是持久卷，否则重建容器丢库。
+  - **国内拉不到镜像的根因不是「镜像不存在」**：`nslookup hub.docker.com` 回到 `31.13.x.x`
+    （Meta 段）即 DNS 被投毒，`registry-1.docker.io:443` 直连超时。实测可用源
+    `docker.1ms.run` / `docker.xuanyuan.me` / `docker.m.daocloud.io`；
+    daocloud 有仓库白名单（未收录报 `not in allowlist`），xuanyuan 免费节点会 `403 TOOMANYREQUESTS` 需重试。
+    **v2 接口返回 `401 UNAUTHORIZED` 是正常鉴权挑战，不代表 tag 不存在**——判断 tag 只能真拉一次。
+  - 路径三层概念表（宿主机目录 / 容器内目录 / 数据库路径前缀）、与转码流水线对接的三条硬约定、
+    排错速查（`/healthz?ready=1`、`peach token`、诊断包导出）、备份与卸载。
+- **新增 `references/h265-transcode-pipeline.md`** —— h265 批量转码流水线全流程。
+  以 DS423+（Celeron J4125 / UHD 600）+ Windows 本机实测为准：
+  - **编码器选型实测**（同段 1080p）：`libx265 -crf 26` = 2481 kb/s / SSIM 0.9709 / **3.97 fps**；
+    `hevc_qsv -global_quality 26` = 2536 kb/s / SSIM 0.9684 / **81 fps**。
+    结论：**QSV 的 Q 值 ≠ x265 的 CRF，必须实测对齐**；Q21 体积翻 2.2 倍而画质看不出来。
+  - **分工原则**：本机跑 ≥6 Mbps 的高码率片（CPU 强、可并行 2–3 路），NAS 只啃 2–6 Mbps 的
+    （J4125 4 核，QSV 快但并行多了会互相拖），<2 Mbps 直接跳过（压完反而更大）。
+  - **三段校验**（缺一不可）：时长 ±1%、分辨率完全一致、体积必须变小且 > 源的 2%。
+  - **八个必踩的坑**，每条都带症状与修法：
+    ① ffmpeg 吞 stdin → 队列每轮只跑 1 条（解：列表走 fd 3 + `-nostdin`）；
+    ② 没有「体积不能变大」保护 → 出现 12.71 → 16.85 GB；
+    ③ `docker top` 显示宿主 PID、容器内 `/proc` 是容器 PID，混用会判断错位；
+    ④ 容器内没有 `ps`/`pkill`/`kill`（扫 `/proc/*/cmdline`，宿主侧 kill）；
+    ⑤ 覆盖正在运行的 bash 脚本会读到错位字节（先 kill 再改）；
+    ⑥ **删除原片被静默拦截**（SMB 盘上回收站重定向必失败且 fail-closed、批量配额用完后静默跳过）
+    → 改同卷 `os.replace()` 搬进暂存区 + 搬完 `exists()` 复核；
+    ⑦ 批次异常退出导致台账不回写（台账要以磁盘为准对账）；
+    ⑧ 重启看门狗会连坐正在跑的批次（`DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP`）。
+- **新增 `scripts/peach_deploy.sh`** —— 一键部署。参数 `--media --data --uid --gid --port --image --name`；
+  起容器前先做四道前置检查（媒体目录存在 / docker 可用 / 容器名不冲突 / 端口未占用），
+  镜像缺失时先直连再按可用镜像源轮询，最后 `setpriv` 以目标 uid 自检媒体目录读权限，
+  起完自动 `peach token` 取登录口令。
+- **新增 `scripts/peach_pull.sh`** —— 国内环境可续传拉镜像。先做连通性自检把
+  「被墙 / DNS 投毒」和「镜像不存在」分开，再按 源 × 轮次 重试；**只以「镜像是否真的落地」
+  判成功，不按日志大小判停滞**（非 TTY 下 `docker pull` 只在状态变化时输出，
+  大层下载期间几分钟不吭声是正常的——按日志判停滞并把进程杀掉，会永远拉不完）。
+  附 DSM 特有坑：**没有 `pgrep`（只有 `pkill`）**，用它写守护会 `command not found` 返回非 0，
+  被判成「进程已退出」，短时间内并发十几个 `docker pull` 互相拖死。
+- **新增 `scripts/h265_queue.sh`** —— NAS 容器内队列脚本（通用版）：`flock` 串行防双写、
+  列表走 fd 3、三级编码兜底（`copy` → `aac 384k` → 去字幕）、三段校验、过小 / 反而变大保护、
+  原片搬进暂存区。
+- **新增 `scripts/h265_qsv_transcode.py`** —— 本机并行转码（参数化版）：`class Coder` 封装
+  `probe` / `encode` / `verify` / `stage_original` / `discard` / `handle`；
+  支持 `--root --csv --stage --bindir --q --workers --limit --min-bitrate --max-bitrate --list --dry-run`；
+  逐条结果写 `results/h265_progress.jsonl`。
+- **新增 `scripts/h265_ledger_check.py`** —— 以磁盘实况为准对账 CSV 台账，
+  分「已转码 / 源文件缺失」两类回写，写前自动 `.bak`。
+- **`SKILL.md`**：新增「专项参考：媒体服务与转码」一节（两张参考 + 三个脚本的索引，
+  外加四条最值钱的结论）；**`README.md`**：索引表与「我想…」决策表各补三行；`VERSION` → `1.4.0`。
+
 ## 2026-10-24 · v1.3.0 DSM 升级 + 套件升级 + 批量文件整理
 
 > 素材来源：一次完整的「DSM 跨大版本升级（7.2.1-69057 U13 → 7.4.1-90080 U1）

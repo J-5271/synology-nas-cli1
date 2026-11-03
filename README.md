@@ -240,6 +240,9 @@ python3 scripts/nas_nic_sample.py --ifaces eth0,eth2 --seconds 15
 | 清理无效文件 / 隔离残片、缩略图 | 同上（隔离区保留原路径，可整体回退） |
 | 用 Drive 传上 NAS 后想删本地 | `references/drive-client-and-retention.md`（先自证方向性，再按校验结果删） |
 | 要删 / 改建 Drive 同步任务 | 同上（第三节：勾「同时删除本地文件」会清空源目录） |
+| 在 NAS 上部署 Peach（蜜桃）媒体库 | `scripts/peach_deploy.sh` + `references/peach-deploy.md`（UID/GID 1000 覆盖、无 `latest` 标签、镜像源回退） |
+| 在 NAS / 本机批量把视频压成 h265 | `references/h265-transcode-pipeline.md`（QSV Q26 实测、三段校验、八个坑） |
+| 压完发现「体积没变小 / 原片没删掉 / 台账对不上」 | `scripts/h265_ledger_check.py`（以磁盘为准对账）+ 同文档第四节 |
 | 提交实测记录 / 求助 | 见下方「反馈与回传」两个收集表 |
 
 ### 8. 排错
@@ -324,6 +327,8 @@ python3 scripts/first_run.py
 | `references/dsm-upgrade.md` | DSM 固件升级 + 套件批量升级：官方通道下载、`--start-force`、重启收尾、盘点三坑 |
 | `references/bulk-file-rename.md` | 批量文件改名 / 归集 / 隔离：WAL 先行、跨子卷 EXDEV、干跑与冲突保护 |
 | `references/drive-client-and-retention.md` | Drive 客户端落点、同步 vs 备份方向性、FileStation 取证、安全删除七件套 |
+| `references/peach-deploy.md` | Peach（蜜桃）媒体库 Docker 部署：UID/GID 1000 覆盖、无 `latest` 标签、镜像源回退、路径三层概念、备份卸载 |
+| `references/h265-transcode-pipeline.md` | h265 批量转码流水线：QSV Q26 选型实测、分工原则、三段校验、八个必踩的坑 |
 | `scripts/syno_findhost.py` | Synology Assistant 同款发现协议客户端（findhostd，只读） |
 | `scripts/discover_nas.py` | 局域网 NAS 发现（mDNS + SSDP + HTTP 指纹；端口探测默认关闭） |
 | `scripts/nas_exec.py` | SSH 执行器，内置只读/改配置守卫 |
@@ -334,6 +339,11 @@ python3 scripts/first_run.py
 | `scripts/nfs3_client.py` | 纯 Python NFSv3 客户端：挂载验证 + 顺序读写 / 随机读 / 延迟基准（不需要管理员） |
 | `scripts/nas_nic_sample.py` | 在 NAS 上采样各网卡 RX/TX 速率，用于判定性能瓶颈在哪一侧（只读） |
 | `scripts/pack_skill.py` | 打包（full/delta）+ 凭据扫描，命中凭据 exit 4 |
+| `scripts/peach_deploy.sh` | Peach 一键部署：前置检查 → 镜像源回退拉取 → `setpriv` 权限自检 → 起容器 → 取登录口令 |
+| `scripts/peach_pull.sh` | 国内环境可续传拉镜像：连通性自检分流 → 源 × 轮次重试 → 以「镜像真的落地」判成功 |
+| `scripts/h265_qsv_transcode.py` | 本机并行 h265 转码（QSV/CPU 自动），三级编码兜底 + 四重校验 + 原片暂存区 |
+| `scripts/h265_queue.sh` | NAS 容器内队列脚本：flock 串行、fd 3 读列表、三段校验、原片搬暂存区 |
+| `scripts/h265_ledger_check.py` | 以磁盘实况为准对账 CSV 台账（已转码 / 源文件缺失） |
 | `scripts/check_ci.py` | 校验 `.github/workflows/*.yml` 可解析（需 PyYAML，未装则跳过） |
 | `scripts/cos_upload.py` | COS 上传（ima 回传第二步） |
 | `scripts/check_update.py` | 检查 GitHub 是否有新版本（Release / tag / commit 三级 fallback） |
