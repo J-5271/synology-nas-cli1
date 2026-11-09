@@ -1,11 +1,11 @@
 ---
 name: synology-nas-cli
-description: "通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理 Synology NAS（DSM）——查状态、列用户与共享文件夹、开关 SSH、局域网发现、NFS 文件服务与性能诊断、Drive 客户端运维、DSM 升级与批量文件整理、Peach 媒体库部署与 h265 批量转码、执行只读巡检。涉及改配置或破坏性操作时受只读优先策略约束。当用户提到群晖 / Synology / NAS / DSM / NFS / synouser / synoshare / dsm_api / Peach / 转码 时使用。"
-version: 1.4.1
+description: "通过 SSH（root/官方 CLI）或 DSM Web API 管理群晖 Synology NAS（DSM）：查状态、管用户与共享、传文件、局域网发现、NFS、性能诊断、DSM 升级、批量整理、硬盘兼容性、媒体与转码。默认只读，改配置需显式确认。当用户提到群晖 / Synology / NAS / DSM / NFS / synouser / synoshare / dsm_api 时使用。"
+version: 1.5.0
 display_name: "群晖 NAS 管理助手"
 display_name_en: "Synology NAS CLI Manager"
-description_zh: "通过 SSH（root/官方 CLI 工具）或 DSM Web API 管理群晖 Synology NAS（DSM）的实操技能包：查状态、列用户与共享文件夹、开关 SSH、局域网发现、DSM Web API 调用、文件传输、套件离线安装、DSM 系统升级与套件批量升级、批量文件改名归集隔离、域控 GPO 与 FSLogix 部署、synoacltool ACL 实战、NFS 文件服务与性能/网络诊断、Drive 客户端运维、Peach 媒体库部署与 h265 批量转码流水线。默认只读优先，改配置/破坏性操作需显式确认，内置守卫防误执行。"
-description_en: "A practical skill pack for managing Synology NAS (DSM) via SSH (root/official CLI) or DSM Web API: status checks, user/share listing, SSH toggle, LAN discovery, Web API calls, file transfer, offline package install, DSM firmware upgrade and bulk package upgrade, bulk file rename/collect/quarantine, AD domain GPO and FSLogix deployment, synoacltool ACL recipes, NFS file service with performance/network diagnostics, Synology Drive client retention, Peach media library deployment, and a batch h265 transcoding pipeline. Read-only by default; mutating or destructive ops require explicit confirmation and are guarded."
+description_zh: "群晖 Synology NAS（DSM）实操技能包：SSH root、官方 CLI、DSM Web API、FileStation、AD 域控、浏览器自动化；覆盖巡检、NFS、性能诊断、系统升级、批量文件整理、硬盘兼容性、Peach 与 h265 转码。只读优先，改配置/破坏性操作需显式确认。"
+description_en: "Practical skill pack for Synology NAS (DSM): SSH root, official CLI, DSM Web API, FileStation, AD, browser automation — status checks, NFS, performance diagnostics, DSM/package upgrades, bulk file ops, drive compatibility, media and h265 transcoding. Read-only by default; mutating ops need explicit confirmation."
 agent_created: true
 ---
 
@@ -126,7 +126,7 @@ IdentitiesOnly yes
 | DSM Web API（优先） | DSM 的 HTTP/HTTPS 端口 + 账号密码 | 查状态、列用户/共享文件夹、改 SSH 开关等大多数运维操作；不需要 SSH 处于开启状态 | references/dsm-web-api.md |
 | AD 域控管理 | LDAPS(636) + 域管凭据；SYSVOL 文件走 SSH exec 通道 | Directory Server（Samba AD DC）的用户/组/密码策略/GPO 管理 | references/synology-gpo.md |
 | SSH + root | 22 或自定义 SSH 端口，且 DSM 里已启用 SSH | 需要真 shell：改系统文件、跑脚本、排查底层 | 本文档下方 + references/ssh-and-troubleshooting.md |
-| 浏览器自动化（兜底） | 能访问 DSM 网页 + `agent-browser` | Web API 干不了的：装 DSM、装套件、建共享文件夹、绕过磁盘兼容检查 | references/browser-automation.md |
+| 浏览器自动化（兜底） | 能访问 DSM 网页 + `agent-browser` | Web API 干不了的：装 DSM、装套件、建共享文件夹、绕过磁盘兼容检查（见下方「第三方硬盘兼容性」专项） | references/browser-automation.md |
 
 判断不了就用 `scripts/dsm_api.py info` 试 Web API —— 它最省事，也能顺带看出
 SSH 是否已启用（SYNO.Core.Terminal）。
@@ -386,6 +386,22 @@ scripts/nas_exec.py "/usr/syno/sbin/synouser --help"       # 该版本真实语�
 > 直接比大小是错的。NAS 本机 `dd` 三种写法（`oflag=direct` / `direct,dsync` / `conv=fsync`）
 > 能一眼看出页缓存与持久化的差距，详见 `references/perf-and-network.md` 第三节。
 
+### 专项参考：第三方硬盘兼容性（「硬盘未验证」）
+
+2025 系列（DS925+ / DS1825+ 等）装完 DSM 常直接提示「硬盘不兼容」。完整机制、参数、
+源码级坑位与只读核对命令见 **`references/drive-compatibility.md`**。
+三条最值钱的结论：
+
+1. **「关掉检查」和「把盘写进库」是两件事。** `support_disk_compatibility=no` 只是让 DSM
+   不再检查，盘仍是未验证状态（NVMe 建卷依旧受限）；`syno_hdd_db.sh` 改
+   `/var/lib/disk-compatibility/*_host.db`、标成 `compatibility: support` 才是让 DSM「认」。
+   25 系列新机首次装机要**先用前者打通安装、再用后者补库**，顺序不能反。
+2. **脚本的 `-f` 是双向开关**（`syno_hdd_db.sh` 第 2216–2240 行）：带 `-f` 写 `no`，
+   **不带 `-f` 会主动把检查写回 `yes`**。所以「首次 `-fr`、开机任务 `-nr`」等于重新开启检查
+   （盘已入库时无害）；反之开机任务长期带 `-f` 就是永久放弃数据去重与群晖盘固件升级。
+3. **属改配置，且 DSM 升级会重置。** 改的是兼容库与 `synoinfo.conf`，必须开机任务兜底
+   （root + 开机触发 + `-n` 防止 DSM 覆盖）。客户环境要明示这是**非官方支持路径**。
+
 ### 专项参考：媒体服务与转码
 
 NAS 上跑「看片」和「压片」两条链路，各有完整参考 + 可执行脚本。两条链路**互不相干**：
@@ -644,7 +660,7 @@ RS6426xs+（双万兆）上的承载验证，含：
 | Release 下载页 | https://github.com/J-5271/synology-nas-cli1/releases |
 | 提交历史 | https://github.com/J-5271/synology-nas-cli1/commits/main |
 | 腾讯文档版本记录（**GitHub 不可达时的镜像**） | **https://docs.qq.com/aio/DQ05IdUxxR3ZtUndG** （《synology-nas-cli 版本更新记录》，file_id `CNHuLqGvmRwF`） |
-| 本地版本基线 | `VERSION` 文件（当前 `1.4.1`；**以 VERSION 文件为准**，本文其它数字过期时以此为准） |
+| 本地版本基线 | `VERSION` 文件（当前 `1.5.0`；**以 VERSION 文件为准**，本文其它数字过期时以此为准） |
 | 检查水位 | `.update_state.json`（`last_version` / `last_commit` / `last_checked`） |
 | 检查脚本 | `scripts/check_update.py`（纯标准库，只访问 api.github.com 公开只读接口） |
 
@@ -655,7 +671,7 @@ RS6426xs+（双万兆）上的承载验证，含：
 python scripts/check_update.py            # 人类可读：有无更新 + 主要更新内容
 python scripts/check_update.py --json     # 机器可读，供自动化消费
 python scripts/check_update.py --mark-seen   # 记录当前水位，下次从这里开始比
-python scripts/check_update.py --set-version 1.4.1   # 手动改本地版本基线
+python scripts/check_update.py --set-version 1.5.0   # 手动改本地版本基线
 ```
 
 退出码：`0` 有更新 / `3` 无更新 / `4` 查询失败（会打印腾讯文档镜像地址兜底）。

@@ -11,43 +11,33 @@
 >   整理者不承担任何责任。执行任何写操作前请自行备份，并先在测试环境验证。
 > - 商标与版权归各自权利人所有；若内容涉及侵权，请联系删除。
 
-## 这是什么（简要概述）
+## 这是什么
 
-> **一句话**：一套把「群晖 NAS 日常运维」变成**命令行 + 有安全守卫**的技能包，
-> 让 AI 助手（或你自己）能直接查状态、传文件、管共享文件夹，而**默认不改设备配置**。
+> **一句话**：把「群晖 NAS 日常运维」变成**命令行 + 有安全守卫**的技能包，
+> 让 AI 助手（或你自己）直接查状态、传文件、管共享文件夹，而**默认不改设备配置**。
 
-Synology / 群晖 NAS 管理技能包。唯一真实来源是**本地 git 仓库**；
-GitHub 公开仓库 <https://github.com/J-5271/synology-nas-cli1> 是**只读分发镜像**。
+本地 git 仓库是唯一真实来源；GitHub 公开仓库 <https://github.com/J-5271/synology-nas-cli1> 是**只读分发镜像**。
 
 ### 六条通路，按场景选
 
-| 通路 | 脚本 | 前提 | 能干什么 | 典型场景 |
-|---|---|---|---|---|
-| **局域网发现** | `syno_findhost.py` / `discover_nas.py` | 与 NAS 同广播域 | 不知道 IP / 端口时先把设备找出来，能拿型号、DSM 版本、自定义端口 | 接手陌生网络、端口被改过 |
-| **SSH + root** | `nas_exec.py` | DSM 开启 SSH，账号在 administrators 组 | 跑任意 DSM 命令、读 `/etc/VERSION`、用官方 CLI（synouser / synoshare / synonet…） | 巡检、批量改用户与共享、装 Docker |
-| **DSM Web API** | `dsm_api.py` | **不用开 SSH**，能访问 DSM 网页即可 | 查系统信息、共享文件夹、用户、SSH 开关状态、探查 1600+ 注册 API | 客户环境不让开 SSH、只要读状态 |
-| **FileStation 传输** | `syno.py` | 同上（Web API 通道） | 上传 / 下载 / 列目录，支持多文件与管道 | 传脚本、取日志、导备份 |
-| **AD 域控管理** | `nas_exec.py`（samba-tool / LDAPS） | 装了 Directory Server，LDAPS(636) 可达 | 域用户/组/密码策略查询；GPO 需 LDAP + SYSVOL 直改（域控无 ADWS） | VDI 加域、FSLogix ODFC、GPO 排查 |
-| **浏览器自动化** | `agent-browser`（外部工具） | 能访问 DSM 网页 | GUI 才能干的事：装 DSM、装套件、建共享文件夹、绕过磁盘兼容检查 | 新机开荒、套件装不上 |
+| 通路 | 脚本 | 前提 | 能干什么 / 什么时候用 |
+|---|---|---|---|
+| **局域网发现** | `syno_findhost.py` / `discover_nas.py` | 与 NAS 同广播域 | 不知道 IP / 端口时先找设备；接手陌生网络 |
+| **DSM Web API** | `dsm_api.py` | **不用开 SSH**，能访问 DSM 网页 | 查系统信息、共享、用户、SSH 开关；客户不让开 SSH 时的首选 |
+| **FileStation 传输** | `syno.py` | 同上（Web API 通道） | 上传 / 下载 / 列目录；传脚本、取日志、导备份 |
+| **SSH + root** | `nas_exec.py` | 已开 SSH + administrators 组 | 跑任意命令、读 `/etc/VERSION`、用官方 CLI；巡检与批量改配置 |
+| **AD 域控管理** | `nas_exec.py`（samba-tool / LDAPS） | Directory Server，LDAPS 可达 | 域用户/组/密码策略；VDI 加域、FSLogix ODFC、GPO 排查 |
+| **浏览器自动化** | `agent-browser`（外部工具） | 能访问 DSM 网页 | GUI 才行的：装 DSM、装套件、绕过磁盘兼容检查 |
 
-### 专项能力（NFS · 性能诊断 · 升级与批量整理 · Drive）
+### 专项参考
 
-不属于「通路」，是几类**能独立查、能独立测**的能力，各有完整参考文档：
+不属于「通路」，每项有独立参考文档（均在 `references/`）：
 
-| 主题 | 脚本 | 一句话 |
-|---|---|---|
-| **NFS 导出与挂载** | `nas_nfs.py` / `nfs3_client.py` | 查改共享的 NFS 导出规则；没装 NFS 客户端也能验证能不能挂、跑读写基准 |
-| **性能与网络诊断** | `nas_nic_sample.py` / `nfs3_client.py` | 在 NAS 侧采样网卡速率，判定「慢」到底是客户端、链路还是后端存储的问题 |
-| **DSM 升级与套件批量升级** | 复用 `nas_exec.py` / `dsm_api.py` | 走官方通道下载安装包、`--start-force` 安装、重启后收尾与套件盘点 |
-| **批量文件整理** | 复用 `nas_exec.py` | 数万文件改名归集隔离：WAL 先行、跨子卷 copy+unlink、干跑必做 |
-| **Drive 客户端与上传后删本地** | 无（取证走 `dsm_api.py`） | 自证任务方向性、FileStation 逐文件校验、三阶段安全删除 |
+NFS 导出与挂载 · 性能与网络诊断 · DSM 升级与套件批量升级 · 批量文件整理（改名/归集/隔离） ·
+Drive 客户端与上传后删本地 · **第三方硬盘兼容性（硬盘未验证）** · Peach 媒体库部署 · h265 批量转码流水线
 
-参考：`references/nfs-service.md`、`references/perf-and-network.md`、
-`references/dsm-upgrade.md`、`references/bulk-file-rename.md`、
-`references/drive-client-and-retention.md`。
-
-> ⚠️ **两条写操作能力**（DSM 升级 / 批量文件整理）都可能不可逆地改动设备或数据：
-> 升级会重启 NAS，批量改名会动数万文件。动手前先备份、先干跑、先小批量验证。
+> ⚠️ 其中 **DSM 升级、批量文件整理、硬盘兼容性改动**都属写操作或改配置，可能不可逆地改动设备或数据：
+> 动手前先备份、先干跑、先小批量验证。
 
 ### 设计取舍（为什么值得用）
 
@@ -236,6 +226,7 @@ python3 scripts/nas_nic_sample.py --ifaces eth0,eth2 --seconds 15
 | 目录 ACL 细粒度控制（谁能建目录、谁能删） | `references/synoacltool-acl.md`（权限位映射 + 四大怪癖） |
 | 要把 DSM 升到新版本 / 批量升套件 | `references/dsm-upgrade.md`（官方通道下载 + `--start-force` + 重启收尾） |
 | 升级后容器全停了 / 套件版本对不上 | 同上（`docker start` 逐个拉、套件重新盘点） |
+| 装完 DSM 提示「硬盘不兼容 / 未验证」，或第三方 NVMe 建不了卷 | `references/drive-compatibility.md`（两条路径的区别、`-f` 双向开关、开机任务兜底） |
 | 数万文件按规则改名、归集到一个目录 | `references/bulk-file-rename.md`（WAL 先行 + 干跑 + 冲突跳过） |
 | 清理无效文件 / 隔离残片、缩略图 | 同上（隔离区保留原路径，可整体回退） |
 | 用 Drive 传上 NAS 后想删本地 | `references/drive-client-and-retention.md`（先自证方向性，再按校验结果删） |
@@ -316,6 +307,7 @@ python3 scripts/first_run.py
 | `references/dsm-deployment-guide.md` | 新机开荒：官方部署指南要点（RAID/文件系统选型、安全加固清单、DSM 6.2→7 对照） |
 | `references/lan-discovery.md` | 局域网发现：findhostd 协议 + mDNS/SSDP，两个发现脚本 |
 | `references/browser-automation.md` | 浏览器通路：装 DSM、装套件、建 btrfs 卷、快照计划 API 契约 |
+| `references/drive-compatibility.md` | 第三方硬盘兼容性：`support_disk_compatibility` 与兼容库两条路径、`syno_hdd_db.sh` 参数与源码坑、2025 系列政策、回滚 |
 | `references/nfs-service.md` | NFS 文件服务：导出规则读写、NFSv3 协议要点与实测坑、Windows 挂载、NFS vs SMB 取舍 |
 | `references/perf-and-network.md` | 性能与网络诊断：瓶颈三层定位、多网卡路由陷阱、页缓存 vs 持久化口径 |
 | `references/vdi-nas-perf-test.md` | VDI 性能压测与容量验证实测案例（fio/DiskSpd 口径 + SMB/静态路由调优 + 踩坑） |

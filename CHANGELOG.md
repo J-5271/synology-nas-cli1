@@ -4,6 +4,41 @@
 >
 > 上一轮整包：**2026-10-02 并入 v2026.09**（2026-09 全部周增量已合并进主干，本地 tag `v2026.09`）
 
+## 2026-11-09 · v1.5.0 第三方硬盘兼容性 + 简介收口
+
+一次「补能力 + 减冗余」的版本，代码无改动。
+
+- **新增 `references/drive-compatibility.md`** —— 群晖「硬盘未验证」怎么办。
+  素材是 `007revad/Synology_HDD_db` v3.6.131 源码逐行通读 + 一份 DSM 7.4 实操记录。
+  **本篇不是纯实测，已在文首标注**：脚本行为、库路径、参数开关均对源码核对（带行号），
+  但未在真机执行，落地前先在测试机跑一遍。
+  - **两条路径必须分清**，这是最容易混的地方：`synosetkeyvalue … support_disk_compatibility no`
+    只是让 DSM **不检查**，盘仍是未验证状态（NVMe 建卷依旧受限）；`syno_hdd_db.sh` 改
+    `/var/lib/disk-compatibility/*_host.db`、标成 `compatibility: support` 才是让 DSM **认**。
+    25 系列（DS925+/DS1825+）新机首次装机要**先用前者打通安装、再用后者补库**，顺序不能反。
+  - **源码级坑：`-f` 是双向开关**（`syno_hdd_db.sh` 第 2216–2240 行）。带 `-f` 写 `no`，
+    **不带 `-f` 会主动把 `support_disk_compatibility` 写回 `yes`**。所以「首次手动 `-fr`、
+    开机任务写 `-nr`」这个流行组合，第二次运行就把关掉的检查重新打开了——
+    盘已入库时无害，但会让人误以为「不开 `-f` 也能保持免检查」。反过来，开机任务长期带 `-f`
+    等于永久放弃数据去重与群晖盘固件升级（README 原文有写，但没人注意）。
+  - 另三个坑：脚本**只写 `/etc.defaults/synoinfo.conf`**（手动法要写两个文件，一个管重启后、
+    一个管当前会话）；`synosetkeyvalue` 三个参数容易被粘成两段（`…compatibilityno`），
+    要用 `synogetkeyvalue` 回读确认；脚本**不能放 M.2 卷**，DSM 升级后 M.2 卷在脚本运行前不可用，
+    开机任务会静默失败。
+  - 官方口径也收进来了：DSM 7.3 已解除 2025 Plus 机型在 7.2.2 下的大部分限制，只留两条
+    （第三方 NVMe 不能建缓存/卷、未验证盘仍大量告警），两条都能被本方案解决。
+    附 7.2.2 装机阶段的 `start_telnet.cgi` + `touch /tmp/installable_check_pass` 绕过法，
+    并注明「非官方支持路径」。
+  - 供应链信息带版本闸门：核对时上游最新 release 为 **v3.6.139**（2026-08-30），
+    而流传的中文教程多用 v3.6.131，落后 8 个版本——取用前先看 release 页。
+- **三处简介收口**（纯文字，功能不变）：
+  - `SKILL.md` frontmatter 的 `description` / `description_zh` / `description_en` 三段原有大量重复罗列，
+    压成中等长度，保留全部触发关键词（群晖 / Synology / NAS / DSM / NFS / synouser / synoshare / dsm_api）。
+  - `README.md`「这是什么」：几句话 + 一张六通路表 + 一行专项清单，去掉第二张五行的表；
+    「两条写操作能力」的警告扩为「升级 / 批量整理 / 硬盘兼容性」三条。
+  - GitHub 仓库 About 补一句话简介（此前为空）。
+- 版本号 `1.4.1` → `1.5.0`（`VERSION`、`SKILL.md` 两处引用同步）。
+
 ## 2026-11-03 · v1.4.1 h265 流水线补坑：双机分工 + 看门狗复活记录
 
 纯文档补丁，都在 `references/h265-transcode-pipeline.md`，代码无改动。
