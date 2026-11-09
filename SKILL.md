@@ -1,7 +1,7 @@
 ---
 name: synology-nas-cli
 description: "通过 SSH（root/官方 CLI）或 DSM Web API 管理群晖 Synology NAS（DSM）：查状态、管用户与共享、传文件、局域网发现、NFS、性能诊断、DSM 升级、批量整理、硬盘兼容性、媒体与转码。默认只读，改配置需显式确认。当用户提到群晖 / Synology / NAS / DSM / NFS / synouser / synoshare / dsm_api 时使用。"
-version: 1.5.0
+version: 1.6.0
 display_name: "群晖 NAS 管理助手"
 display_name_en: "Synology NAS CLI Manager"
 description_zh: "群晖 Synology NAS（DSM）实操技能包：SSH root、官方 CLI、DSM Web API、FileStation、AD 域控、浏览器自动化；覆盖巡检、NFS、性能诊断、系统升级、批量文件整理、硬盘兼容性、Peach 与 h265 转码。只读优先，改配置/破坏性操作需显式确认。"
@@ -356,6 +356,21 @@ scripts/nas_exec.py "/usr/syno/sbin/synouser --help"       # 该版本真实语�
 不代表 SSH 端口也转发了——先 `nc -zv <host> <port>` 或直接跑脚本确认。
 连不上时先分清是 Connection refused（端口没转发）还是 No route to host / 超时。
 
+### 生态项目索引与能力边界（被别人问「能不能整合成一个专家」时看这里）
+
+社区里还有一大批群晖相关项目（Xpenology 引导器、NVMe 建池解锁、Docker 模板、SPK 编译框架…）。
+**本包不打包它们，只做索引与风险分级**：完整清单、实时星标/许可证核对、四层架构建议见
+**`references/ecosystem-boundaries.md`**。三条要点：
+
+1. **划出去的四类**：引导器（`RROrg/rr`、`AuxXxilium/arc`）、NVMe 建池（`Synology_M2_volume`）、
+   SPK 编译（`spksrc`）、Docker 模板合集。理由：改引导介质/分区表，失败即开不了机或丢池，
+   且与「管理已装好的 NAS」这个定位正交。
+2. **社区数字不要信二手。** 二手聚合站的星标与许可证会滞后甚至标错——实测 `RROrg/rr` 8,764 星
+   是 `arc`（3,571）的 2.4 倍；`synology-nas-bootstrapper` 只有 **18 星**却被一些清单列成「高星」；
+   `spksrc` 与 `bootstrapper` 的许可证都是 `NOASSERTION`，**不能当依赖用**。写进方案的数一律自己抓。
+3. **专家形态是编排层，不是大杂烩。** 门槛是「核心能力已在 10–20 个高频场景稳定 + 有推荐库与
+   风险分级 + 能区分只回答/可执行」。缺一条就先别做。
+
 ### 专项参考：NFS / 性能诊断 / 系统升级 / 批量文件整理 / Drive
 
 几条**独立于上面几条通路**的专项能力，各自有完整参考文档（部分带脚本）：
@@ -660,7 +675,7 @@ RS6426xs+（双万兆）上的承载验证，含：
 | Release 下载页 | https://github.com/J-5271/synology-nas-cli1/releases |
 | 提交历史 | https://github.com/J-5271/synology-nas-cli1/commits/main |
 | 腾讯文档版本记录（**GitHub 不可达时的镜像**） | **https://docs.qq.com/aio/DQ05IdUxxR3ZtUndG** （《synology-nas-cli 版本更新记录》，file_id `CNHuLqGvmRwF`） |
-| 本地版本基线 | `VERSION` 文件（当前 `1.5.0`；**以 VERSION 文件为准**，本文其它数字过期时以此为准） |
+| 本地版本基线 | `VERSION` 文件（当前 `1.6.0`；**以 VERSION 文件为准**，本文其它数字过期时以此为准） |
 | 检查水位 | `.update_state.json`（`last_version` / `last_commit` / `last_checked`） |
 | 检查脚本 | `scripts/check_update.py`（纯标准库，只访问 api.github.com 公开只读接口） |
 
@@ -671,7 +686,7 @@ RS6426xs+（双万兆）上的承载验证，含：
 python scripts/check_update.py            # 人类可读：有无更新 + 主要更新内容
 python scripts/check_update.py --json     # 机器可读，供自动化消费
 python scripts/check_update.py --mark-seen   # 记录当前水位，下次从这里开始比
-python scripts/check_update.py --set-version 1.5.0   # 手动改本地版本基线
+python scripts/check_update.py --set-version 1.6.0   # 手动改本地版本基线
 ```
 
 退出码：`0` 有更新 / `3` 无更新 / `4` 查询失败（会打印腾讯文档镜像地址兜底）。

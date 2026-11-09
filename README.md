@@ -34,7 +34,7 @@
 不属于「通路」，每项有独立参考文档（均在 `references/`）：
 
 NFS 导出与挂载 · 性能与网络诊断 · DSM 升级与套件批量升级 · 批量文件整理（改名/归集/隔离） ·
-Drive 客户端与上传后删本地 · **第三方硬盘兼容性（硬盘未验证）** · Peach 媒体库部署 · h265 批量转码流水线
+Drive 客户端与上传后删本地 · **第三方硬盘兼容性（硬盘未验证）** · **生态项目索引与能力边界** · Peach 媒体库部署 · h265 批量转码流水线
 
 > ⚠️ 其中 **DSM 升级、批量文件整理、硬盘兼容性改动**都属写操作或改配置，可能不可逆地改动设备或数据：
 > 动手前先备份、先干跑、先小批量验证。
@@ -308,6 +308,7 @@ python3 scripts/first_run.py
 | `references/lan-discovery.md` | 局域网发现：findhostd 协议 + mDNS/SSDP，两个发现脚本 |
 | `references/browser-automation.md` | 浏览器通路：装 DSM、装套件、建 btrfs 卷、快照计划 API 契约 |
 | `references/drive-compatibility.md` | 第三方硬盘兼容性：`support_disk_compatibility` 与兼容库两条路径、`syno_hdd_db.sh` 参数与源码坑、2025 系列政策、回滚 |
+| `references/ecosystem-boundaries.md` | 生态项目索引与能力边界：10 个社区项目实时核对（星标/许可证/风险分级）、四层架构、该不该做成「专家」的自检门槛 |
 | `references/nfs-service.md` | NFS 文件服务：导出规则读写、NFSv3 协议要点与实测坑、Windows 挂载、NFS vs SMB 取舍 |
 | `references/perf-and-network.md` | 性能与网络诊断：瓶颈三层定位、多网卡路由陷阱、页缓存 vs 持久化口径 |
 | `references/vdi-nas-perf-test.md` | VDI 性能压测与容量验证实测案例（fio/DiskSpd 口径 + SMB/静态路由调优 + 踩坑） |
