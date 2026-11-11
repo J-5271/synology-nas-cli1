@@ -4,6 +4,24 @@
 >
 > 上一轮整包：**2026-10-02 并入 v2026.09**（2026-09 全部周增量已合并进主干，本地 tag `v2026.09`）
 
+## 2026-11-11 · 安装约束补记：Skill 包只支持两级目录
+
+纯文档 + 打包方式修正，技能内容无改动（仍为 v1.6.0）。
+
+- **背景**：安装/加载时报「目录层级超限 — Skill 包仅支持两级目录结构（根目录/二级目录/文件）」。
+  根因是仓库里有三类**三级**路径混进了安装目录：
+  | 路径 | 层级 | 性质 | 处理 |
+  |---|---|---|---|
+  | `scripts/__pycache__/*.pyc` | 根/scripts/__pycache__/文件 | Python 自动生成的字节码 | 删除；运行脚本时会再生成，建议 `PYTHONDONTWRITEBYTECODE=1` |
+  | `build/delta/*.md` | 根/build/delta/文件 | 增量聚合产物（2026-10-04 的旧包） | 移出仓库 |
+  | `.github/workflows/ci.yml` | 根/.github/workflows/文件 | GitHub CI 配置，**不属于技能内容** | 见下 |
+- **`.github` 的处理**：GitHub Actions 要求工作流必须在 `.github/workflows/`，没法拍平。
+  因此采取「仓库 ≠ 安装包」：CI 打包时本来就带 `--exclude='.git*'`（连 `.github` 一起排掉），
+  Release 里的 tar.gz 天然合规（已实测：0 个三级条目、无 `.github`）。
+  `README.md` 的「安装」一节点名了三件事——clone 后要 `rm -rf .github`、手工打 zip 要
+  `git archive … ':(exclude).github'`、`build/delta` 与 `__pycache__` 不要打进包。
+- 合规包现有结构只有 `references/*.md` 与 `scripts/*` 两类二级目录，共 48 个文件条目。
+
 ## 2026-11-09 · v1.6.0 生态项目索引与能力边界
 
 把「要不要把一堆群晖开源项目整合成一个专家」这个问题沉淀成了一份可复用的决策文档，

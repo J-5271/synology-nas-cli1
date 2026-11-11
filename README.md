@@ -64,12 +64,25 @@ Drive 客户端与上传后删本地 · **第三方硬盘兼容性（硬盘未�
 ```bash
 # 方式一：直接 clone（跟随最新提交）。目标目录随意，可放在任意位置（目录名任意）
 git clone https://github.com/J-5271/synology-nas-cli1.git <任意目录>/synology-nas-cli
+rm -rf <任意目录>/synology-nas-cli/.github     # ← 见下方「目录层级」说明，必须删
 
 # 方式二：用 Release 里的稳定版（推荐）
 # 下载 synology-nas-cli-vX.Y.Z.tar.gz + 同名 .sha256，校验后解压到
 # <你放置技能包的目录>/synology-nas-cli/（目录名随意）
 sha256sum -c synology-nas-cli-vX.Y.Z.sha256
 ```
+
+> ⚠️ **目录层级：Skill 包只支持「根目录 / 二级目录 / 文件」两级。**
+> 本包合规的结构只有 `references/*.md` 和 `scripts/*` 两类二级目录。
+> 仓库里的 `.github/workflows/ci.yml` 是**三级**（`根/.github/workflows/文件`），
+> 它只为 GitHub CI 服务，**不属于技能内容**：
+> - 用 Release 包安装没问题 —— CI 打包时带了 `--exclude='.git*'`，`.github` 已被排除；
+> - 用 `git clone` 安装则**必须**执行上面那句 `rm -rf .github`，否则加载/安装会报
+>   「目录层级超限 — Skill 包仅支持两级目录结构」；
+> - **自己手工打 zip 时同样要排除** `.github`：
+>   `git archive --format=zip --prefix=synology-nas-cli-vX.Y.Z/ -o out.zip HEAD ':(exclude).github'`
+>
+> 其它深层目录（`build/delta/`、`scripts/__pycache__/`）都是生成物，已在 `.gitignore` 里，不要打进包。
 
 ## 使用说明（快速上手）
 
