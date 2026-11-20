@@ -56,6 +56,7 @@ DOC_ORDER = [
     ("references/bulk-file-rename.md", "批量文件改名 / 归集 / 隔离方法论", None),
     ("references/drive-client-and-retention.md", "Drive 客户端与上传后删本地（取证 / 安全删除）", None),
     ("references/vdi-nas-perf-test.md", "VDI 性能压测与容量验证实测案例", None),
+    ("references/vdi-nas-acceptance-and-diagnosis.md", "换盘验收 / 登录风暴归因 / 并发压测（2026-11 增量）", None),
     ("references/error-codes.md", "错误码对照表", None),
     ("references/ssh-and-troubleshooting.md", "SSH 登录与故障排查", None),
     ("references/synoacltool-acl.md", "synoacltool ACL 权限位与群晖怪癖", None),

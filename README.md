@@ -233,6 +233,7 @@ python3 scripts/nas_nic_sample.py --ifaces eth0,eth2 --seconds 15
 | 该选 NFS 还是 SMB | `references/nfs-service.md` 第六节对照表 |
 | 看看有没有新版本 | `check_update.py` |
 | 给 NAS 做性能压测 / VDI 容量评估 / 排查读吞吐瓶颈 | `references/vdi-nas-perf-test.md`（fio/DiskSpd 口径 + SMB/静态路由调优 + 踩坑） |
+| 换盘重建后怎么验收 / 登录风暴归因 / 造多条真实 SMB 并发会话 | `references/vdi-nas-acceptance-and-diagnosis.md`（四类验收证据 + 六组实验定位 GIL + 独立会话并发法） |
 | 群晖作 AD 域控：查域用户/组/密码策略 | `nas_exec.py "samba-tool user list"`（只读；samba-tool 在 `/usr/local/bin/`） |
 | 建 GPO / 改 GPO（群晖域控无 ADWS，GPMC 不可用） | `references/synology-gpo.md`（LDAP + SYSVOL 直改完整清单） |
 | VDI 用户数据上 NAS：FSLogix ODFC 容器 / OST 重定向 | `references/fslogix-odfc.md`（共享 ACL + 注册表 10 值 + 验证） |
@@ -325,6 +326,7 @@ python3 scripts/first_run.py
 | `references/nfs-service.md` | NFS 文件服务：导出规则读写、NFSv3 协议要点与实测坑、Windows 挂载、NFS vs SMB 取舍 |
 | `references/perf-and-network.md` | 性能与网络诊断：瓶颈三层定位、多网卡路由陷阱、页缓存 vs 持久化口径 |
 | `references/vdi-nas-perf-test.md` | VDI 性能压测与容量验证实测案例（fio/DiskSpd 口径 + SMB/静态路由调优 + 踩坑） |
+| `references/vdi-nas-acceptance-and-diagnosis.md` | 换盘修复验收 / 登录风暴归因 / 轻量 SMB 并发压测方法（2026-11 增量） |
 | `references/error-codes.md` | 错误码与排查套路 |
 | `references/ssh-and-troubleshooting.md` | SSH 连接与故障处理 |
 | `references/synoacltool-acl.md` | synoacltool ACL 实战：权限位映射、模板、四大怪癖、FSLogix 案例 |

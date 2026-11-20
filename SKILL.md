@@ -1,7 +1,7 @@
 ---
 name: synology-nas-cli
 description: "通过 SSH（root/官方 CLI）或 DSM Web API 管理群晖 Synology NAS（DSM）：查状态、管用户与共享、传文件、局域网发现、NFS、性能诊断、DSM 升级、批量整理、硬盘兼容性、媒体与转码。默认只读，改配置需显式确认。当用户提到群晖 / Synology / NAS / DSM / NFS / synouser / synoshare / dsm_api 时使用。"
-version: 1.6.0
+version: 1.7.0
 display_name: "群晖 NAS 管理助手"
 display_name_en: "Synology NAS CLI Manager"
 description_zh: "群晖 Synology NAS（DSM）实操技能包：SSH root、官方 CLI、DSM Web API、FileStation、AD 域控、浏览器自动化；覆盖巡检、NFS、性能诊断、系统升级、批量文件整理、硬盘兼容性、Peach 与 h265 转码。只读优先，改配置/破坏性操作需显式确认。"
@@ -382,6 +382,7 @@ scripts/nas_exec.py "/usr/syno/sbin/synouser --help"       # 该版本真实语�
 | **DSM 固件升级与套件批量升级** | `references/dsm-upgrade.md` | 复用 `scripts/nas_exec.py` / `scripts/dsm_api.py` | 要把 DSM 升到新版本、要批量升级套件、升级后容器起不来 |
 | **批量文件整理（改名 / 归集 / 隔离）** | `references/bulk-file-rename.md` | 复用 `scripts/nas_exec.py` | 数万文件按规则改名归集、跨子卷搬运、清理无效文件 |
 | **Drive 客户端运维与上传后删本地** | `references/drive-client-and-retention.md` | 无（纯运维参考，取证走 `scripts/dsm_api.py`） | 用 Drive 传完要删本地、要判断任务方向性、删任务前评估风险 |
+| **换盘修复验收 / 登录风暴归因 / 并发压测** | `references/vdi-nas-acceptance-and-diagnosis.md` | 无（方法论，压测脚本按需自建） | 换盘后怎么验收、服务端 CPU 低但延迟高怎么归因、怎么造多条真实 SMB 会话 |
 
 三条最值钱的结论，先记住：
 
@@ -542,6 +543,10 @@ RS6426xs+（双万兆）上的承载验证，含：
 - 可直接复用的 fio / DiskSpd / `ip route` 命令片段与 DSM Web API 调优坑位。
 
 > 仅作方法论与调优参考，机型/DSM 版本差异大，落地前请先在自己设备上 `--dry-run` / 小批量验证。
+
+**换盘修复 / 登录风暴 / 多会话并发压测**见 **references/vdi-nas-acceptance-and-diagnosis.md**（归档 2026-11）：
+换盘重建后四类验收证据、登录风暴六组实验归因（服务端 CPU 低时优先怀疑客户端 GIL）、
+以及用独立 SMB 会话造 50 并发的正确方法——这三件是上面那篇 350 并发压测没有覆盖的新增量。
 
 把 NAS 用作 **VDI 用户数据承载（FSLogix ODFC 容器 / Outlook OST 重定向）** 时，
 另见 **references/fslogix-odfc.md**：共享 ACL、ODFC 注册表 10 值、群晖 ACL
